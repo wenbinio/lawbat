@@ -9,13 +9,34 @@
 
 **Local-first redaction and re-identification risk checks for legal documents.**
 
+## For judges (60 seconds)
+
+| | |
+|---|---|
+| **What** | A local review desk for an exported legal data room: search, schedule, lawyer-in-the-loop redaction, re-identification concern estimates. |
+| **Problem** | Closing / regulatory folders still need identifiers stripped before a draft goes out. Hosted tools assume IT and an upload of privileged material. |
+| **Privacy** | No model call. No network from the app. Originals stay read-only. |
+| **BLI** | [Hackathon page](https://bli.tools/hackathon/) · [ARCHITECTURE.md](ARCHITECTURE.md) · [docs/BLI_SUBMISSION.md](docs/BLI_SUBMISSION.md) · [2.5-min demo](docs/demo/lawbat-demo.mp4) |
+| **Chainlink** | Optional CRE audit trail under [`cre/`](cre/): attestation hashes → CRE workflow → `RedactionRegistry` / `RedactionAttested`. **Simulation only** (CRE deploy access not enabled). Proof: [cre/SIMULATION.md](cre/SIMULATION.md). How to reproduce: [cre/README.md](cre/README.md). |
+
+**Quickstart that works without Rust** (search + schedule; redaction shows an honest offline state until `cargo build`):
+
+```bash
+git clone https://github.com/wenbinio/lawbat.git && cd lawbat
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+./run.sh --demo                                      # Windows: run.bat --demo
+```
+
+Then open <http://127.0.0.1:8077/>. Prefer the [demo video](docs/demo/lawbat-demo.mp4) if you only have a minute. Full redaction needs the Rust build in [Run the demo](#run-the-demo).
+
 ## Demo video
 
 [Watch the 2.5-minute demo](docs/demo/lawbat-demo.mp4).
 
 Search an exported data room, build a schedule of documents, and redact identifiers with a lawyer in the loop. Originals stay read-only. The app does not call a model and does not use the network.
 
-This tree is the public source for the [BLI Legal Tech Hackathon 2](https://bli.tools/hackathon/) submission. Start with the demo, then read [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/BLI_SUBMISSION.md](docs/BLI_SUBMISSION.md).
+This tree is the public source for the [BLI Legal Tech Hackathon 2](https://bli.tools/hackathon/) submission and the Chainlink **Best workflow with CRE** bounty application on DoraHacks. Start with the demo, then read [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/BLI_SUBMISSION.md](docs/BLI_SUBMISSION.md).
 
 ## The problem
 
@@ -47,17 +68,17 @@ License: **AGPL-3.0**. See [LICENSE](LICENSE) and [to-read/THIRD_PARTY_LICENSES.
 
 ## Run the demo
 
-From a fresh clone, with Python 3.12 and Rust stable:
+From a fresh clone. Python 3.11 or 3.12 preferred (3.13 works for the demo). Rust stable is needed for live redaction and the Home worklist generator.
 
 ```bash
 git clone https://github.com/wenbinio/lawbat.git
 cd lawbat
 
-python3 -m pip install fastapi "uvicorn[standard]" pymupdf python-docx openpyxl python-pptx pillow
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 
-cd core
-cargo build -p redact-cli -p viewgen --release
-cd ..
+# Optional but recommended for a full redaction demo:
+cd core && cargo build -p redact-cli -p viewgen --release && cd ..
 
 ./run.sh --demo
 ```
@@ -88,30 +109,35 @@ python3 -m ruff check app desktop tests
 
 `ruff.toml` keeps the lint rule set this tree is written against.
 
+## Architecture (app)
+
+Lawbat indexes a local folder, serves pages on `127.0.0.1`, and keeps matter bytes on the machine. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full diagram (indexer → SQLite FTS5 → redact-cli / viewgen). The optional CRE path below is separate: the app still does not open the network; only an attestation HTTP server you start on loopback is fetched by the CRE simulator.
+
 ## Chainlink CRE audit trail
 
-A redaction report on disk is a local workflow record. It is not, by itself, tamper-evident. The optional workflow under `cre/` is the tamper-evident step: it takes a **redaction attestation** (hashes and counts only) and asks Chainlink CRE to write those hashes to `RedactionRegistry` on Ethereum Sepolia. The chain shows that this tool version assessed a redacted document at a given time, and what the re-identification risk level was. It does not show the document, the names, or a decision that the document is cleared to send.
+A redaction report on disk is a local workflow record. It is not, by itself, tamper-evident. The optional workflow under [`cre/`](cre/) is the tamper-evident step: it takes a **redaction attestation** (hashes and counts only) and asks Chainlink CRE to write those hashes to [`RedactionRegistry`](cre/contracts/src/RedactionRegistry.sol) on Ethereum Sepolia. The chain shows that this tool version assessed a redacted document at a given time, and what the re-identification risk level was. It does not show the document, the names, or a decision that the document is cleared to send.
+
+**Status for judges:** the workflow was simulated successfully with the CRE CLI (`cre workflow simulate`). **This is simulation only** — CRE deploy access on the account is not enabled, and nothing was broadcast to a public network. Full proof: [cre/SIMULATION.md](cre/SIMULATION.md). Reproduce from scratch: [cre/README.md](cre/README.md).
 
 Lawbat itself still does not call a model and does not open the network. The attestation server binds to `127.0.0.1`. The CRE workflow refuses an attestation URL that is not on this machine. The only bytes intended for the chain are the redacted-output SHA-256, the report hash, a risk level from 0 to 3, and a timestamp.
 
 ```mermaid
 flowchart LR
   subgraph machine [This machine]
-    App[Lawbat redaction]
-    Att[Attestation JSON]
-    Http[127.0.0.1 attestation endpoint]
-    App --> Att --> Http
+    App[Lawbat API attestation]
+    Http["127.0.0.1 attestation JSON"]
+    App --> Http
   end
   subgraph cre [Chainlink CRE]
     Trig[HTTP trigger]
-    Fetch[HTTP capability]
+    Fetch[HTTP fetch attestation]
     Check[Validate schema and hash]
     Report[Signed EVM report]
-    Trig --> Fetch --> Check --> Report
+    Write[evmClient.writeReport]
+    Trig --> Fetch --> Check --> Report --> Write
   end
   Http --> Fetch
-  Report --> Fwd[KeystoneForwarder]
-  Fwd --> Reg[RedactionRegistry]
+  Write --> Reg[RedactionRegistry]
   Reg --> Ev[RedactionAttested]
 ```
 
@@ -126,12 +152,12 @@ The workflow entry is `cre/workflow/main.ts`. On an HTTP trigger it GETs the att
 
 ### Simulation
 
-The Lawbat CRE workflow was simulated successfully with the Chainlink CRE CLI (`cre workflow simulate`, CLI v1.39.0). See [cre/SIMULATION.md](cre/SIMULATION.md) and [cre/simulation.log](cre/simulation.log). The run fetched a loopback attestation, validated it, signed an EVM report, and completed `writeReport` as a dry-run (no public-network broadcast). This repository still does not ship an account, an API key, or funds.
+The Lawbat CRE workflow was simulated successfully with the Chainlink CRE CLI (`cre workflow simulate`, CLI v1.39.0). See [cre/SIMULATION.md](cre/SIMULATION.md) and [cre/simulation.log](cre/simulation.log). The run fetched a loopback attestation, validated it, signed an EVM report, and completed `writeReport` as a dry-run (no public-network broadcast). **Deploy access is not enabled.** This repository does not ship an account, an API key, or funds.
 
-From `cre/` after `bun install` in `cre/workflow`, with the attestation server on `127.0.0.1:8765` and Anvil on `127.0.0.1:18545`:
+One-command repro (after the one-time setup in [cre/README.md](cre/README.md) — CLI install, `cre login`, attestation server, Anvil):
 
 ```bash
-cre workflow simulate workflow --target local-simulation --non-interactive \
+cd cre && cre workflow simulate workflow --target local-simulation --non-interactive \
   --trigger-index 0 --http-payload '{"attestationUrl":"http://127.0.0.1:8765/attestation"}'
 ```
 
@@ -159,7 +185,7 @@ Simulation complete!
 ## Layout
 
 - `app/` — indexer, search, redaction reviewer, document workspace, re-identification estimator, attestation export
-- `cre/` — Chainlink CRE workflow, `RedactionRegistry`, and the local simulation log
+- `cre/` — Chainlink CRE workflow, `RedactionRegistry`, simulation proof ([cre/README.md](cre/README.md))
 - `desktop/` — Windows launcher
 - `core/` — Rust workspace. Build notes: [to-read/core.README.md](to-read/core.README.md)
 - `demo/sample-room/` — fictional data room used by `--demo`

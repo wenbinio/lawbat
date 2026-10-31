@@ -46,3 +46,8 @@ The pages inline their CSS and script. They do not load a font, a CDN, or a remo
 ## What is deliberately absent
 
 No account server, no telemetry, and no model runtime. Optional OCR uses a local Tesseract binary when one is installed. The Windows MSI build (`build/`, `.github/workflows/package-windows.yml`) is not required to run the demo from source.
+
+## Chainlink CRE (optional)
+
+The localhost app still does not open the network. Separately, `cre/` holds a Chainlink CRE workflow that can fetch a loopback redaction attestation (hashes and counts only) and write those hashes to `RedactionRegistry` via `evmClient.writeReport`. That path is documented in [cre/README.md](cre/README.md). The recorded proof is a CRE CLI **simulation**, not a live deployment.
+

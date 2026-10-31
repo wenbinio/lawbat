@@ -44,7 +44,9 @@ DoraHacks tags this hackathon with Blockchain, Crypto, Legal, Finance, Complianc
 
 The organisers have described a Caffeine AI track (automated workflows and practical enterprise tools) and a Chainlink track (decentralised applications, smart contracts, and real-world-asset data). Later posts also emphasise payment rails.
 
-File Lawbat as **Legal**, **RegTech**, and **Compliance**. On the Caffeine track it matches automated workflows and practical enterprise tools: search, a document schedule, and a confirmed redaction pass. It does not call a language model, and it should not be described as an AI agent. It does not target the Chainlink track, payment rails, stablecoins, or RWA oracles. If the form forces a single track, choose the enterprise-workflow side of the Caffeine track.
+File Lawbat as **Legal**, **RegTech**, and **Compliance**. On the Caffeine track it matches automated workflows and practical enterprise tools: search, a document schedule, and a confirmed redaction pass. It does not call a language model, and it should not be described as an AI agent. It does not target payment rails, stablecoins, or RWA oracles.
+
+Separately, the same Build applies to the Chainlink **Best workflow with CRE** bounty: an optional CRE workflow under [`cre/`](../cre/) records redaction attestation hashes on-chain (simulation only; see [cre/SIMULATION.md](../cre/SIMULATION.md)). That path does not change the local-first app. If the BLI form forces a single primary track, choose the enterprise-workflow side of the Caffeine track and point judges at `cre/` for the Chainlink bounty.
 
 ## Demo video script
 
