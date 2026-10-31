@@ -477,6 +477,14 @@
     wire();
   }
 
+  if (document.body && document.body.getAttribute('data-demo') === '1' && $('scoreText') && !$('scoreText').value) {
+    LB.get('/api/demo/sample').then(function(r){
+      if (r.ok && r.data && r.data.directors && $('scoreText') && !$('scoreText').value) {
+        $('scoreText').value = r.data.directors;
+      }
+    }).catch(function(){});
+  }
+
   // ---- test seam (drives tests/reidrisk_render.test.js) ----
   window.__reidriskInternals = {
     esc: esc,

@@ -636,12 +636,13 @@ def create_app(state: AppState) -> FastAPI:
     @app.get("/api/demo/sample", dependencies=_TOKEN_GUARD)
     def api_demo_sample():
         """Fictional Harbour Lane letter + a one-page PDF of it. No client data."""
-        from .demo import harbour_letter, harbour_pdf
+        from .demo import harbour_directors, harbour_letter, harbour_pdf
         text = harbour_letter()
         pdf = harbour_pdf()
         return JSONResponse({
             "filename": "harbour-lane-sample.pdf",
             "text": text,
+            "directors": harbour_directors(),
             "data_b64": base64.b64encode(pdf).decode("ascii"),
         })
 

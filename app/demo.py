@@ -20,6 +20,12 @@ def harbour_letter() -> str:
     return path.read_text(encoding="utf-8")
 
 
+def harbour_directors() -> str:
+    """The fictional directors list used to preload the re-identification demo."""
+    path = sample_room() / "02-corporate" / "directors.md"
+    return path.read_text(encoding="utf-8")
+
+
 def harbour_pdf() -> bytes:
     """A one-page PDF of that letter, so the workspace is not an empty viewer."""
     import fitz

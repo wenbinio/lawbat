@@ -46,23 +46,13 @@
 
 <div class="app">
   <h1 class="lb-page">Re-identification risk</h1>
-  <div class="topbar" hidden>
-    <div class="brand">
-      <img class="logo" alt="" width="26" height="26" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiB2aWV3Qm94PSIwIDAgMjU2IDI1NiI+CiAgPHJlY3QgeD0iOCIgeT0iOCIgd2lkdGg9IjI0MCIgaGVpZ2h0PSIyNDAiIHJ4PSI1NiIgZmlsbD0iIzE0MTYxYiIvPgogIDxwYXRoIGZpbGw9IiNmMmU4Y2YiIGQ9Ik0yNCA4NEw2NyA3MEwxMDEgODRMMTE1IDEwM0wxMTIgNjhMMTI4IDg0TDE0NCA2OEwxNDEgMTAzTDE1NSA4NEwxODkgNzBMMjMyIDg0TDIxNiAxMDVMMjMwIDExOUwyMDcgMTMwTDIxOCAxNTFMMTgzIDE0OEwxNzcgMTc0TDE0OCAxNTVMMTI4IDE5NEwxMDggMTU1TDc5IDE3NEw3MyAxNDhMMzggMTUxTDQ5IDEzMEwyNiAxMTlMNDAgMTA1WiIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTI4LDEwMiAxNDMsMTI2IDEyOCwxNzQgMTEzLDEyNiIgZmlsbD0iI2UwYTk0ZiIvPgo8L3N2Zz4K">
-      <div class="titles">
-        <h1>Re-identification risk estimator</h1>
-        <div class="sub">Lawbat</div>
-      </div>
-    </div>
-    <div class="actions">
-      <a class="back" href="/">&larr; Home</a>
-    </div>
-  </div>
 
   <main id="main">
 
-    <!-- ===== PERMANENT, NON-DISMISSIBLE HONESTY BANNERS (plain HTML, always visible) ===== -->
-    <div class="wrap">
+    <!-- Honesty notes stay in the page (wording unchanged) but start collapsed. -->
+    <details class="reid-notes">
+      <summary>How to read this estimate</summary>
+      <div class="wrap">
 
       <div class="banner honest" id="bannerEstimate">
         <span class="ic" aria-hidden="true">&#9888;</span>
@@ -94,7 +84,8 @@
             reference data. A sparse match is NOT a low-risk finding &mdash; it is insufficient data.</p>
         </div>
       </div>
-    </div>
+      </div>
+    </details>
 
     <!-- ================================================================
          SINGLE-DOCUMENT k ESTIMATE

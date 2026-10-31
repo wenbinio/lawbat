@@ -96,12 +96,11 @@
       }
       app.appendChild($('<div class="center">' +
         ftsWarning(state) +
-        '<h2>Lawbat</h2>' +
+        '<h2>Open a data room</h2>' +
         '<p>Local-only search over an exported data room.<br>Nothing leaves this machine.</p>' +
         '<button class="big" onclick="startIndex()">Open data room folder…</button>' +
         matters +
-        '<p class="note" style="margin-top:18px"><a href="/">← Home</a> ·' +
-        ' <a onclick="showAbout()">About this app</a></p>' +
+        '<p class="note" style="margin-top:18px"><a onclick="showAbout()">About this app</a></p>' +
         '</div>'));
       return;
     }
@@ -109,18 +108,16 @@
     // search view
     var st = state.stats || {};
     app.innerHTML = '';
-    app.appendChild($('<header>' +
-      '<div class="brand"><div class="logo" aria-hidden="true">L</div>' +
-      '<div><h1>Lawbat — ' + esc(state.matter_name) + '</h1>' +
+      app.appendChild($('<header class="matterbar">' +
+      '<div><h1>' + esc(state.matter_name) + '</h1>' +
       '<div class="stats">' +
       '<a onclick="showFiles(\'all\',\'All files\')">' + st.total + ' files</a> ·' +
       ' <a onclick="showFiles(\'searchable\',\'Searchable\')">' + st.ok + ' searchable</a> ·' +
       ' <a onclick="showFiles(\'needs_ocr\',\'Need OCR\')">' + (st.needs_ocr || 0) + ' need OCR</a> ·' +
       ' <a onclick="showFiles(\'duplicates\',\'Duplicates\')">' + (st.duplicates || 0) + ' duplicate</a> ·' +
       ' <a onclick="showFiles(\'errors\',\'Errors\')">' + st.errors + ' errors</a> · local only' +
-      '</div></div></div>' +
+      '</div></div>' +
       '<div>' +
-      '<button onclick="location.href=\'/\'">Home</button>' +
       '<button onclick="reindexCurrent()">Re-index</button>' +
       '<button onclick="renderTools()">Tools</button>' +
       '<button onclick="closeMatter()">Open another folder</button>' +
@@ -319,10 +316,9 @@
   async function renderTools(){
     var app = document.getElementById('app');
     app.innerHTML = '';
-    app.appendChild($('<header>' +
-      '<div class="brand"><div class="logo" aria-hidden="true">L</div>' +
+    app.appendChild($('<header class="matterbar">' +
       '<div><h1>Tools</h1>' +
-      '<div class="stats">Document index (read-only) · batch rename (reversible) · local only</div></div></div>' +
+      '<div class="stats">Document index (read-only) · batch rename (reversible) · local only</div></div>' +
       '<button onclick="render()">← Back to search</button>' +
       '</header>'));
 

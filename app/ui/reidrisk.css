@@ -59,6 +59,10 @@
 .med-tier.rare{color:var(--crit)}
 .med-note{color:var(--fg3);font-size:var(--t-cap);margin-top:2px}
 
+.reid-notes{margin:8px 24px 0;border:1px solid var(--hair);border-radius:10px;background:var(--l1);padding:8px 14px}
+.reid-notes summary{cursor:pointer;font-weight:650;color:var(--warn)}
+.reid-notes .wrap{padding:8px 0 0}
+.reid-notes .banner{margin-top:8px}
 /* ---- coverage + caveat ---- */
 .est-coverage{color:var(--fg2);font-size:var(--t-cap)}
 .est-caveat{color:var(--fg3);font-size:var(--t-cap);margin-top:8px;line-height:1.5}
