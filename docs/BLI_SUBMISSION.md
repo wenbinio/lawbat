@@ -1,5 +1,7 @@
 # BLI Legal Tech Hackathon 2 — submission notes
 
+[Watch the 2.5-minute demo](demo/lawbat-demo.mp4).
+
 Portal: [DoraHacks — BLI Legal Tech Hackathon 2](https://dorahacks.io/hackathon/1904).
 
 Event page: [bli.tools/hackathon](https://bli.tools/hackathon/).

@@ -9,6 +9,10 @@
 
 **Local-first redaction and re-identification risk checks for legal documents.**
 
+## Demo video
+
+[Watch the 2.5-minute demo](docs/demo/lawbat-demo.mp4).
+
 Search an exported data room, build a schedule of documents, and redact identifiers with a lawyer in the loop. Originals stay read-only. The app does not call a model and does not use the network.
 
 This tree is the public source for the [BLI Legal Tech Hackathon 2](https://bli.tools/hackathon/) submission. Start with the demo, then read [ARCHITECTURE.md](ARCHITECTURE.md) and [docs/BLI_SUBMISSION.md](docs/BLI_SUBMISSION.md).
