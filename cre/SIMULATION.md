@@ -1,131 +1,65 @@
 # Simulation record
 
-Recorded 2026-10-31. No CRE account was created and no transaction was broadcast to a public network.
+## Real CRE CLI simulation
 
-`cre workflow simulate` is the bounty command. It requires a Chainlink CRE login (`cre login` or `CRE_API_KEY`). This run is not logged in, so that command stops before it executes the workflow. The workflow does compile with `cre workflow build`, which does not require a login.
-
-The successful execution is `./cre/simulate-local.sh`. It is a local dry-run of the same attestation: an HTTP fetch from Lawbat on `127.0.0.1`, then `RedactionRegistry.onReport` on Anvil (chain id 11155111, the Sepolia id) using Anvil's public development account as a stand-in for the KeystoneForwarder. That account is not funded. The raw combined log is [simulation.log](simulation.log).
-
-## `cre workflow build` and `cre workflow simulate`
+Recorded **2026-10-31 ~23:50 SGT** (Asia/Singapore, UTC+8). CRE CLI **v1.39.0**, logged in. No transaction was broadcast to a public network (`--broadcast` was not set). The CLI used its default simulation private key for the chain-write dry-run.
 
 Working directory: `cre/`.
+
+Services running for the run:
+
+- Attestation HTTP server on `http://127.0.0.1:8765/attestation` (hashes and counts only)
+- Anvil on `http://127.0.0.1:18545`, chain id `11155111` (Sepolia id)
+- `RedactionRegistry` deployed at `0x5FbDB2315678afecb367f032d93F642f64180aa3` (Anvil account 0 as the KeystoneForwarder stand-in)
+
+Config fix applied for this run: Zod's `.url()` rejects loopback hosts inside the CRE WASM runtime, so `cre/workflow/main.ts` validates `attestationUrl` as a non-empty string and `assertLoopbackAttestationUrl` still enforces `http://127.0.0.1|localhost:<port>/attestation`.
 
 ```
 $ cre version
 CRE CLI version v1.39.0
 
-$ cre workflow build workflow --target local-simulation
-  Compiling workflow...
-✓ Workflow compiled successfully
-  Binary hash: 594a17d7d2e2cbf24b1d41d1d84581dc59f7eeba063cef755b2784718ef79955
-✓ Build output written to /workspace/cre/workflow/binary.wasm
-
-$ cre workflow simulate workflow --target local-simulation --non-interactive --trigger-index 0 --http-payload '{"attestationUrl":"http://127.0.0.1:8765/attestation"}'
+$ cre workflow simulate workflow --target local-simulation --non-interactive \
+    --trigger-index 0 \
+    --http-payload '{"attestationUrl":"http://127.0.0.1:8765/attestation"}'
 Initializing...
+Loading settings...
+! Using default private key for chain write simulation. To use your own key, set CRE_ETH_PRIVATE_KEY in your .env file or system environment.
+Checking RPC connectivity...
+Compiling workflow...
+✓ Workflow compiled
+✓ Simulation limits enabled
+  Binary hash: 68f28ff1721cc425d2bd761aa8a2aaccf061bcf559a04a5c5ac7f8edea19aef3
+  Config hash: d74f04afd9c90eacc1239e8f694c2702f3b74d5c87d3bd5b793ed8fc5f0038a9
+✓ Parsed JSON input successfully
+✓ Created HTTP trigger payload with 1 fields
+2026-10-31T23:50:49Z [SIMULATION] Simulator Initialized
 
-! You are not logged in
+2026-10-31T23:50:49Z [SIMULATION] Running trigger trigger=http-trigger@1.0.0-alpha
+2026-10-31T23:50:49Z [USER LOG] Validated attestation doc=c00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61 risk=high categories=3
+2026-10-31T23:50:49Z [USER LOG] Signed the EVM report. Submitting it to RedactionRegistry.
+2026-10-31T23:50:49Z [USER LOG] RedactionAttested dry-run succeeded tx=0x0000000000000000000000000000000000000000000000000000000000000000
 
-✗ Authentication required: not logged in and no CRE_API_KEY set
-  → Run 'cre login' interactively, or
-  → Set CRE_API_KEY environment variable for non-interactive use
-✗ authentication required: no credentials found: you are not logged in, run cre login and try again
-exit code: 1
+✓ Workflow Simulation Result:
+"{\"document_sha256\":\"c00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61\",\"report_sha256\":\"a2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e\",\"risk_level\":2,\"tx_hash\":\"0x0000000000000000000000000000000000000000000000000000000000000000\"}"
+
+2026-10-31T23:50:49Z [SIMULATION] Execution finished signal received
+2026-10-31T23:50:49Z [SIMULATION] Skipping WorkflowEngineV2
+
+╭──────────────────────────────────────────────────────╮
+│ Simulation complete! Ready to deploy your workflow?  │
+│                                                      │
+│ Run cre account access to request deployment access. │
+╰──────────────────────────────────────────────────────╯
 ```
 
-Result: **build succeeded, simulate did not.** Exit code 1. Authentication required. No workflow execution, no RPC call, and no onchain write from the CRE CLI.
+Result: **`cre workflow simulate` succeeded.** Exit code 0. The HTTP trigger ran, the workflow fetched and validated the Lawbat attestation over loopback HTTP, signed an EVM report, and completed `writeReport` as a dry-run (tx hash all zeros because broadcast was off). The raw combined log is [simulation.log](simulation.log).
 
-## Local dry-run
+Caveats:
 
-Working directory: repository root.
+- Deploy Access on the CRE account is **not enabled**. This run is simulation only; it does not deploy a live workflow.
+- No Sepolia broadcast. The zero `tx_hash` is expected without `--broadcast`.
+- Timestamps in the CLI log are wall-clock on the machine (SGT) printed with a `Z` suffix by the simulator.
 
-```
-$ ./cre/simulate-local.sh
-== build fictional attestation ==
-document_sha256 c00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61
-report_sha256 a2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e
-risk high 2
-counts {'email': 2, 'id': 1, 'phone': 1}
-== serve attestation on 127.0.0.1:8765 ==
-== fetch attestation (external HTTP call) ==
-{
-    "accepted": 4,
-    "could_not_remove": 0,
-    "counts_by_category": {
-        "email": 2,
-        "id": 1,
-        "phone": 1
-    },
-    "document_sha256": "c00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61",
-    "note": "hashes and counts only; no document text leaves this record. Not a clearance to disclose the document.",
-    "ocr_used": false,
-    "reid_risk": {
-        "direction": "optimistic \u2014 may under-state risk",
-        "is_estimate": true,
-        "k": 12.5,
-        "level": "high",
-        "level_code": 2
-    },
-    "rejected": 1,
-    "report_sha256": "a2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e",
-    "schema": "lawbat.redaction-attestation/1",
-    "timestamp": "2026-10-31T11:56:27Z",
-    "tool_version": "0.1.1",
-    "verification_state": "checked"
-}
-== anvil chain-id 11155111 on http://127.0.0.1:18545 ==
-chain-id 11155111
-== deploy RedactionRegistry (forwarder = anvil account 0) ==
-No files changed, compilation skipped
-Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-Deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
-Transaction hash: 0x9270a46d450d04fed3ec4f442fef6bb5fdd9216638fcc9d21bdc71aba62602f9
-registry 0x5FbDB2315678afecb367f032d93F642f64180aa3
-== abi-encode the attestation and call onReport ==
+## Earlier local dry-run (no CRE login)
 
-blockHash            0x0d6e9479697439f0f95054501a887d75c45571446bc5d8554e0233cdfe1a3273
-blockNumber          2
-contractAddress      
-cumulativeGasUsed    70555
-effectiveGasPrice    877640660
-from                 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
-gasUsed              70555
-logs                 [{"address":"0x5fbdb2315678afecb367f032d93f642f64180aa3","topics":["0xd8698ea31f784f7eb1a41e7bdcb10dc6982f7492d7dce6075a2e5a4162c758d8","0xc00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61"],"data":"0xa2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000006ae5d76b","blockHash":"0x0d6e9479697439f0f95054501a887d75c45571446bc5d8554e0233cdfe1a3273","blockNumber":"0x2","blockTimestamp":"0x6ae5d76b","transactionHash":"0xf056264053735ebbd7db6595b4a8e6e306857b7eabc5eb97426a234b15e6f570","transactionIndex":"0x0","logIndex":"0x0","removed":false}]
-logsBloom            0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044000000000000000000000000000000000000000000000000080000000000000000000000000000000000000400000000000000000000000200000000000000000000000000000000000000000000000000000000000000000010000000000040000000000400000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-root                 
-status               1 (success)
-transactionHash      0xf056264053735ebbd7db6595b4a8e6e306857b7eabc5eb97426a234b15e6f570
-transactionIndex     0
-type                 2
-blobGasPrice         
-blobGasUsed          
-to                   0x5FbDB2315678afecb367f032d93F642f64180aa3
-== read back getAttestation(docHash) ==
-0xa2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e
-2
-1793447787 [1.793e9]
-1793447787 [1.793e9]
-read-back matches docHash
-== RedactionAttested logs ==
-- address: 0x5FbDB2315678afecb367f032d93F642f64180aa3
-  blockHash: 0x0d6e9479697439f0f95054501a887d75c45571446bc5d8554e0233cdfe1a3273
-  blockNumber: 2
-  data: 0xa2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000006ae5d76b
-  logIndex: 0
-  removed: false
-  topics: [
-  	0xd8698ea31f784f7eb1a41e7bdcb10dc6982f7492d7dce6075a2e5a4162c758d8
-  	0xc00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61
-  ]
-  transactionHash: 0xf056264053735ebbd7db6595b4a8e6e306857b7eabc5eb97426a234b15e6f570
-  transactionIndex: 0
-  decoded:
-  	docHash: 0xc00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61
-  	reportHash: 0xa2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e
-  	riskLevel: 2
-  	ts: 1793447787 [1.793e9]
-LOCAL_DRY_RUN_OK registry=0x5FbDB2315678afecb367f032d93F642f64180aa3
-```
-
-Result: **local dry-run succeeded** (`LOCAL_DRY_RUN_OK`). `getAttestation(docHash)` returned the same report hash, risk level 2 (`high`), and timestamp that the attestation carried. The `RedactionAttested` log decoded `docHash`, `reportHash`, `riskLevel`, and `ts`.
-
-This does not replace `cre workflow simulate`. A logged-in operator can run that command after starting the attestation server and Anvil. `cre/workflow/config.local.json` still points the consumer at the placeholder address `0x0000000000000000000000000000000000000001`; point it at a deployed `RedactionRegistry` before expecting `writeReport` to land. Do not pass `--broadcast` against a public RPC.
+Before the CRE account existed, `./cre/simulate-local.sh` ran the same attestation path offline: HTTP fetch from Lawbat on `127.0.0.1`, then `RedactionRegistry.onReport` on Anvil. That offline path remains available. The first attempt at `cre workflow simulate` without a login stopped at authentication and is superseded by the section above.

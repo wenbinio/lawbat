@@ -126,16 +126,16 @@ The workflow entry is `cre/workflow/main.ts`. On an HTTP trigger it GETs the att
 
 ### Simulation
 
-`cre workflow simulate` compiles the workflow to WASM and runs it. Chainlink requires a CRE login for that command. This repository does not ship an account, a key, or a request to create one.
+The Lawbat CRE workflow was simulated successfully with the Chainlink CRE CLI (`cre workflow simulate`, CLI v1.39.0). See [cre/SIMULATION.md](cre/SIMULATION.md) and [cre/simulation.log](cre/simulation.log). The run fetched a loopback attestation, validated it, signed an EVM report, and completed `writeReport` as a dry-run (no public-network broadcast). This repository still does not ship an account, an API key, or funds.
 
-From `cre/` after `bun install` in `cre/workflow`:
+From `cre/` after `bun install` in `cre/workflow`, with the attestation server on `127.0.0.1:8765` and Anvil on `127.0.0.1:18545`:
 
 ```bash
 cre workflow simulate workflow --target local-simulation --non-interactive \
   --trigger-index 0 --http-payload '{"attestationUrl":"http://127.0.0.1:8765/attestation"}'
 ```
 
-What ran here, because no CRE account was available, is recorded in [cre/SIMULATION.md](cre/SIMULATION.md). The command above was executed and stopped at authentication. `cre workflow build` compiles the workflow without a login. `cre/simulate-local.sh` is the offline dry-run: it fetches the attestation over HTTP and writes it on a local Anvil node (chain id 11155111) using Anvil's public development account as a stand-in for the KeystoneForwarder. That account is not a secret and is not funded. Nothing is broadcast to Sepolia.
+`cre/simulate-local.sh` remains the offline dry-run (no CRE login): it fetches the attestation over HTTP and writes it on a local Anvil node (chain id 11155111) using Anvil's public development account as a stand-in for the KeystoneForwarder. That account is not a secret and is not funded.
 
 ```bash
 cd cre/contracts && forge install foundry-rs/forge-std && forge test
@@ -144,25 +144,16 @@ cd ../.. && ./cre/simulate-local.sh
 
 Risk levels are concern signals only: `not_assessed` (0), `noted` (1), `high` (2), `unique` (3). A higher k does not mean the document is cleared.
 
-Excerpt from the run recorded in [cre/SIMULATION.md](cre/SIMULATION.md). The CRE CLI compile succeeded. The simulate command stopped because this environment is not logged in:
+Excerpt from the CRE CLI simulation recorded in [cre/SIMULATION.md](cre/SIMULATION.md):
 
 ```
-✓ Workflow compiled successfully
-  Binary hash: 594a17d7d2e2cbf24b1d41d1d84581dc59f7eeba063cef755b2784718ef79955
-✗ Authentication required: not logged in and no CRE_API_KEY set
-exit code: 1
-```
-
-The local dry-run then fetched the attestation and wrote it on Anvil. The read-back matched:
-
-```
-read-back matches docHash
-decoded:
-  docHash: 0xc00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61
-  reportHash: 0xa2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e
-  riskLevel: 2
-  ts: 1793447787
-LOCAL_DRY_RUN_OK
+✓ Workflow compiled
+2026-10-31T23:50:49Z [SIMULATION] Running trigger trigger=http-trigger@1.0.0-alpha
+2026-10-31T23:50:49Z [USER LOG] Validated attestation doc=c00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61 risk=high categories=3
+2026-10-31T23:50:49Z [USER LOG] Signed the EVM report. Submitting it to RedactionRegistry.
+2026-10-31T23:50:49Z [USER LOG] RedactionAttested dry-run succeeded tx=0x0000000000000000000000000000000000000000000000000000000000000000
+✓ Workflow Simulation Result: ... risk_level: 2 ...
+Simulation complete!
 ```
 
 ## Layout

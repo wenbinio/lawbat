@@ -26,7 +26,8 @@ import {
 } from "./attestation"
 
 const configSchema = z.object({
-  attestationUrl: z.string().url(),
+  // Zod .url() rejects loopback hosts inside the CRE WASM runtime; loopback is enforced in assertLoopbackAttestationUrl.
+  attestationUrl: z.string().min(1),
   chainSelectorName: z.string().min(1),
   consumerAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
   gasLimit: z.string().regex(/^[0-9]+$/),
