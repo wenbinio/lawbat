@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[workspace]
+resolver = "2"
+members = [
+    "crates/runtime",
+    # audit-store — the DURABLE, anchored, tamper-evident audit backend (the audit
+    # persistence gate, increments 0+1). Filesystem I/O lives HERE, never in the
+    # minimal `runtime` (which stays std-only + sha2/hmac, no fs, no RNG). Depends
+    # only on `runtime`; pulls NO RNG into the workspace's trusted core.
+    "crates/audit-store",
+    "crates/host",
+    "crates/redaction",
+    # firmOS module SKELETONS (spec §10) — native first-party crates bound to the
+    # `Core` ABI exactly as redaction (module #1) is, no WASM this increment. They
+    # are compiling scaffolds (stub entry points + stub tests), here so the platform
+    # surfaces have a shape to grow into; do NOT mistake the stubs for working engines.
+    #   extract   — CORE-plane deterministic doc→text extractor (incl. `.eml`)
+    #   inbox     — email-triage module (the productivity dashboard's brain)
+    #   mailbox   — the email API / live-mail-source connector (egress-holder)
+    #   search    — re-rank/present over CORE-owned, entitlement-filtered hits
+    #   timesheet — automated time-capture / draft billing
+    #   view      — shared INERT view-model types (the "cleaner structure" base):
+    #               host-renderable Section/Card/Badge/DueLabel/Caveat/ActionRef
+    #               generalizing search::ResultView. PURE TYPES, no `runtime` dep, no
+    #               capabilities — host-composition, NO `dashboard` module (ratified).
+    #   ingest    — TRUSTED core-plane job: extract an .eml → serialize firmos.meta/1
+    #               → land the metadata doc in the matter store (producer end of the
+    #               matter.read:metadata seam; incl. the F-1 graceful-degradation clamp)
+    # The email pipeline: mailbox (fetch) → extract (parse) → ingest (serialize+land)
+    # → Core::matter_read_metadata (typed headers) → inbox (triage).
+    "crates/extract",
+    "crates/ingest",
+    "crates/inbox",
+    "crates/mailbox",
+    "crates/search",
+    "crates/timesheet",
+    "crates/view",
+    # viewgen — the THIN host-wiring CLI: emits the inbox's typed view-model as JSON
+    # on stdout for the Python shell to render (subprocess/JSON boundary; NO Rust HTTP
+    # server, NO pyo3). Pure compute (serde_json), NO network. Seeds a synthetic
+    # matter through the real Core and maps the worklist via inbox::to_view.
+    "crates/viewgen",
+    # redact-cli — the THIN host-wiring JSON CLI for the redaction module (the same
+    # subprocess/JSON boundary as viewgen): scan/apply over stdin/stdout so the Python
+    # shell can render the two-tier review UI. Native host triple, no WASM.
+    "crates/redact-cli",
+    "modules/hello",
+]
+# `hello` is a WASM GUEST: it only builds for `wasm32-wasip2` (its wit-bindgen
+# `export!` has no meaning on the host triple). Keep it OUT of the default
+# `cargo build`/`cargo test` set so a bare workspace build (host triple) stays
+# green; build it explicitly with:
+#   cargo build -p hello --target wasm32-wasip2 --release
+default-members = [
+    "crates/runtime",
+    # The durable audit backend (host triple, native) — in the default build/test set.
+    "crates/audit-store",
+    "crates/host",
+    # redaction = module #1: a NATIVE first-party module bound directly to the
+    # `Core` traits (no WASM this increment), so it builds for the host triple and
+    # belongs in the default build/test set.
+    "crates/redaction",
+    # The firmOS module skeletons are likewise native/host-triple (no WASM), so they
+    # build + test in the default set alongside redaction.
+    "crates/extract",
+    # ingest — the trusted core-plane metadata ingestion job (extract+runtime bridge).
+    "crates/ingest",
+    "crates/inbox",
+    "crates/mailbox",
+    "crates/search",
+    "crates/timesheet",
+    # The shared inert view-model types (pure, no deps) — in the default build/test set.
+    "crates/view",
+    # The host-wiring JSON CLI (native host triple) — in the default build/test set.
+    "crates/viewgen",
+    # The redaction host-wiring JSON CLI (native host triple) — in the default set.
+    "crates/redact-cli",
+]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false

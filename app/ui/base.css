@@ -1,0 +1,321 @@
+/*
+  Lawbat — SHARED design-system base (base.css).
+
+  The single source for the Lawbat design tokens + common component styles. TOKENS v2
+  ("Evidence Table"): dark-first — the :root palette IS the dark theme; light is DERIVED
+  (re-pinned, not inverted) via @media (prefers-color-scheme:light), and an explicit
+  :root[data-theme="dark"|"light"] attribute override wins over the OS preference (the
+  in-app toggle that sets it is future work; the hooks ship now). Grammar: a luminance
+  ladder L0–L3 gives depth (light, not shadow); a foreground ladder fg–fg4 gives text
+  hierarchy; 1px hairlines replace box-shadows; ONE amber accent spent sparingly; semantic
+  good/warn/crit status colors that never decorate; mono = the engine's voice (data,
+  counts, matched values — with tabular figures), sans = the product's voice.
+
+  This holds the bits EVERY Lawbat page inherits: the :root tokens, the unified topbar,
+  the .banner / .btn / .chip / .card components, form controls, the spinner / working
+  state, empty + error states, and one consistent focus ring.
+
+  AIR-GAP / SELF-CONTAINED: system font stack only (NO web fonts), no url() to any external
+  resource, no @import. It is INLINED into a page by the server at startup (see
+  app/web.py _build_redaction_page(), which substitutes the base-css marker) — NEVER linked
+  — so the served document references nothing over the network.
+
+  REUSE: this file is intentionally generic and reusable. It is wired into the redaction +
+  reid-risk pages; home.css and dataroom.css carry their OWN copy of the token block (those
+  pages do not inline base.css — see app/web.py) with a pointer back here as the source of
+  truth. Page-specific styles stay in each page's own stylesheet.
+*/
+
+/* ==========================================================================
+   1. DESIGN TOKENS  (:root) — Lawbat tokens v2 — the contract every page inherits.
+      Dark-first; light derived via prefers-color-scheme + data-theme.
+   ========================================================================== */
+:root{
+  /* native controls (checkbox/radio, scrollbars, pickers) follow the theme */
+  color-scheme:dark;
+  /* luminance ladder (depth = light, not shadow) */
+  --l0:#121419; --l1:#171A21; --l2:#1D2129; --l3:#252B36;
+  /* foreground ladder (hierarchy = alpha steps) */
+  --fg:#E8EAEE; --fg2:#B3B9C4; --fg3:#8A919E; --fg4:#5F6675;
+  /* hairlines (borders replace shadows) */
+  --hair:#ffffff17; --hair2:#ffffff0b;
+  /* the one accent + the motif */
+  --accent:#D8A83C; --accent-ink:#171204;
+  --accent-ghost:#d8a83c1a; --accent-line:#d8a83c45;
+  --bar:#000; --bar-ink:#EDEBE3;
+  /* semantic status — never decorative */
+  --good:#5CA57D; --good-ghost:#5ca57d18;
+  --warn:#C79A44; --warn-ghost:#c79a4418;
+  --crit:#DB7280; --crit-ghost:#db728018;
+  /* privilege marking (derived semantic extension — same muted register as good/warn/crit;
+     violet so privilege/confidentiality passages stay scannable, never the accent) */
+  --priv:#A48FD4; --priv-ghost:#a48fd41a;
+  /* type — six sizes, two voices, numbers that line up */
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+  --t-label:11.5px; --t-cap:12.5px; --t-ui:13.5px;
+  --t-body:15.5px; --t-h3:17.5px; --t-h2:21px; --t-h1:27px;
+  --lh-body:1.45; --lh-ui:1.4; --lh-head:1.12;
+  --track-caps:.08em;
+  --r:10px; --r-sm:7px; --measure:68ch;
+}
+/* light — derived, re-pinned, not inverted */
+@media (prefers-color-scheme:light){
+  :root{
+    color-scheme:light;
+    --l0:#F3F3F4; --l1:#FAFAFB; --l2:#FFFFFF; --l3:#EDEEF0;
+    --fg:#1A1D23; --fg2:#4A505B; --fg3:#666D79; --fg4:#9BA1AC;
+    --hair:#00000019; --hair2:#0000000c;
+    --accent:#8E690F; --accent-ink:#FFFDF6;
+    --accent-ghost:#8e690f14; --accent-line:#8e690f40;
+    --bar:#0B0B0D; --bar-ink:#F2F0E9;
+    --good:#337552; --good-ghost:#33755214;
+    --warn:#8A6412; --warn-ghost:#8a641214;
+    --crit:#A63A4B; --crit-ghost:#a63a4b12;
+    --priv:#6B4FA0; --priv-ghost:#6b4fa014;
+  }
+}
+/* identical data-theme overrides — the attribute (set by a future in-app switch) wins
+   over the OS preference in BOTH directions */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --l0:#121419; --l1:#171A21; --l2:#1D2129; --l3:#252B36;
+  --fg:#E8EAEE; --fg2:#B3B9C4; --fg3:#8A919E; --fg4:#5F6675;
+  --hair:#ffffff17; --hair2:#ffffff0b;
+  --accent:#D8A83C; --accent-ink:#171204;
+  --accent-ghost:#d8a83c1a; --accent-line:#d8a83c45;
+  --bar:#000; --bar-ink:#EDEBE3;
+  --good:#5CA57D; --good-ghost:#5ca57d18;
+  --warn:#C79A44; --warn-ghost:#c79a4418;
+  --crit:#DB7280; --crit-ghost:#db728018;
+  --priv:#A48FD4; --priv-ghost:#a48fd41a;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --l0:#F3F3F4; --l1:#FAFAFB; --l2:#FFFFFF; --l3:#EDEEF0;
+  --fg:#1A1D23; --fg2:#4A505B; --fg3:#666D79; --fg4:#9BA1AC;
+  --hair:#00000019; --hair2:#0000000c;
+  --accent:#8E690F; --accent-ink:#FFFDF6;
+  --accent-ghost:#8e690f14; --accent-line:#8e690f40;
+  --bar:#0B0B0D; --bar-ink:#F2F0E9;
+  --good:#337552; --good-ghost:#33755214;
+  --warn:#8A6412; --warn-ghost:#8a641214;
+  --crit:#A63A4B; --crit-ghost:#a63a4b12;
+  --priv:#6B4FA0; --priv-ghost:#6b4fa014;
+}
+
+/* --- layout tokens (structural, not palette — outside the v2 color contract) --- */
+:root{
+  /* spacing (4px base) */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:26px; --s7:36px;
+  /* focus ring — an AFFORDANCE, not depth (the one permitted box-shadow) */
+  --focus:0 0 0 2px var(--accent);
+  --topbar-h:56px;
+}
+
+/* ==========================================================================
+   2. RESET + BASE
+   ========================================================================== */
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  font-family:var(--sans);
+  background:var(--l0);color:var(--fg);
+  font-size:var(--t-ui);line-height:var(--lh-ui);
+  -webkit-font-smoothing:antialiased;
+  /* native checkbox ticks / radios inherit the one accent (pairs with color-scheme above) */
+  accent-color:var(--accent);
+}
+h1,h2,h3{margin:0;font-weight:700;line-height:var(--lh-head);letter-spacing:-.01em}
+p{margin:0}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:none;box-shadow:var(--focus);border-radius:var(--r-sm)}
+
+/* a11y skip link + visually-hidden helper — SHARED (every page inheriting base.css uses
+   .skip/.vh in its markup; defining them only in a page stylesheet leaks raw a11y text) */
+.skip{position:absolute;left:-999px;top:auto}
+.skip:focus{left:8px;top:8px;z-index:99;background:var(--l2);border:1px solid var(--accent);
+  padding:8px 12px;border-radius:var(--r-sm)}
+.vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* mono = the engine's voice; numbers line up */
+.num{font-variant-numeric:tabular-nums}
+
+/* ==========================================================================
+   3. APP SHELL  (sticky topbar + footer) — shared across pages
+   ========================================================================== */
+.app{min-height:100vh;display:flex;flex-direction:column}
+
+.topbar{
+  background:var(--l1);border-bottom:1px solid var(--hair);
+  min-height:var(--topbar-h);padding:0 var(--s6);
+  display:flex;align-items:center;justify-content:space-between;gap:var(--s4);
+  position:sticky;top:0;z-index:20;
+}
+.topbar .brand{display:flex;align-items:center;gap:10px;min-width:0}
+.topbar .logo{
+  width:26px;height:26px;border-radius:7px;flex:none;
+  background:var(--bar);color:var(--bar-ink);outline:1px solid var(--hair);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:var(--t-ui);letter-spacing:-.5px;
+}
+.topbar .titles{min-width:0}
+.topbar h1{font-size:var(--t-h3);line-height:1.1;white-space:nowrap}
+.topbar .sub{color:var(--fg3);font-size:var(--t-cap);line-height:1.1;margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar .actions{display:flex;align-items:center;gap:var(--s3)}
+.topbar .back{color:var(--accent);font-size:var(--t-cap);display:inline-flex;align-items:center;gap:5px}
+
+.wrap{padding:var(--s5) var(--s6) var(--s7);max-width:920px;width:100%;margin:0 auto;flex:1}
+
+.footer{
+  display:flex;gap:var(--s6);flex-wrap:wrap;color:var(--fg3);font-size:var(--t-cap);
+  padding:14px var(--s6);border-top:1px solid var(--hair);background:var(--l1);
+}
+.footer b{color:var(--fg2)}
+.footer .f{display:flex;align-items:center;gap:6px}
+.footer .f .dotmark{width:6px;height:6px;border-radius:50%;background:var(--good)}
+.footer .f .dotmark.off{background:var(--crit)}
+
+/* ==========================================================================
+   4. COMPONENT LIBRARY
+   ========================================================================== */
+
+/* ---- cards + section headers: L2 surface on the L0 ground, hairline edge, NO shadow ---- */
+.card{
+  background:var(--l2);border:1px solid var(--hair);border-radius:var(--r);
+  padding:var(--s4) var(--s5);margin-bottom:var(--s4);
+}
+.section-h{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);margin-bottom:var(--s2)}
+.section-h h2{font-size:var(--t-body)}
+.section-h .sub{color:var(--fg3);font-size:var(--t-cap)}
+.lbl{display:block;font-weight:600;font-size:var(--t-ui);margin-bottom:7px}
+.help{color:var(--fg3);font-size:var(--t-cap);margin-top:4px;max-width:var(--measure)}
+.help.warn{color:var(--warn)}
+.divider{height:1px;background:var(--hair);margin:var(--s4) 0}
+
+/* ---- buttons: primary (the accent, spent here) / secondary (bare .btn) /
+        ghost (L3 + hairline) / link ---- */
+button{font:inherit;cursor:pointer}
+/* Plain .btn (no variant class) is the SECONDARY tier: the same L3 surface as .ghost but
+   with a VISIBLE (fg4) border so it reads one step stronger — a bare .btn routinely sits
+   right beside a .ghost (report actions, batch bar) and the hierarchy must survive.
+   Without this themed default a bare .btn fell through to the UA ButtonFace — a white bar
+   in dark theme. .primary/.ghost override background/color/border-color below. */
+.btn{
+  display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-sm);
+  padding:9px 16px;font-size:var(--t-ui);font-weight:600;
+  background:var(--l3);color:var(--fg);border:1px solid var(--fg4);
+  transition:background .12s,border-color .12s,filter .12s;
+}
+.btn:hover{border-color:var(--fg3)}
+.btn:active{filter:brightness(.96)}
+.btn:disabled{color:var(--fg4);background:var(--l3);border-color:var(--hair);cursor:default;filter:none}
+.btn:focus-visible{box-shadow:var(--focus)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.primary:active{filter:brightness(.94)}
+.btn.primary:disabled{opacity:.45;filter:none;cursor:default}
+.btn.ghost{background:var(--l3);color:var(--fg);border-color:var(--hair)}
+.btn.ghost:hover{border-color:var(--fg4)}
+.btn.ghost:active{filter:brightness(.96)}
+.btn.ghost:disabled{color:var(--fg4);background:var(--l3);border-color:var(--hair);cursor:default}
+.linkbtn,.link{
+  background:transparent;border:none;color:var(--accent);font-size:var(--t-cap);
+  padding:2px 4px;border-radius:5px;font-weight:600;
+}
+.linkbtn:hover,.link:hover{text-decoration:underline}
+.linkbtn:disabled,.link:disabled{color:var(--fg4);cursor:default;text-decoration:none}
+.btn-row,.row{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
+.hint{color:var(--fg3);font-size:var(--t-cap)}
+.hint.warn{color:var(--warn)}
+.hint.ok{color:var(--good)}
+.orsep{color:var(--fg4);font-size:var(--t-cap)}
+
+/* ---- chips / badges: the engine's voice — compact mono, tabular figures ---- */
+.chip{
+  display:inline-flex;align-items:center;gap:4px;
+  font:600 var(--t-label)/1.2 var(--mono);letter-spacing:.04em;
+  font-variant-numeric:tabular-nums;
+  border-radius:5px;padding:3px 8px;border:1px solid transparent;
+  white-space:nowrap;
+}
+.chip.neutral{background:var(--l3);color:var(--fg2)}
+.chip.accent{background:var(--accent-ghost);color:var(--accent)}
+.chip.high{background:var(--crit-ghost);color:var(--crit)}
+.chip.med{background:var(--warn-ghost);color:var(--warn)}
+.chip.ok{background:var(--good-ghost);color:var(--good)}
+.chip.priv{background:var(--priv-ghost);color:var(--priv)}
+.chip.count{min-width:22px;justify-content:center;font-weight:700}
+
+/* ---- banners (honest-framing + health/warning + info + success + error) ----
+   Semantic ghost fills + a hairline edge; the <b> headline takes the status color,
+   body copy stays on the foreground ladder (readable on both grounds). */
+.banner{
+  display:flex;gap:12px;align-items:flex-start;border-radius:var(--r);
+  padding:13px 15px;margin-bottom:var(--s4);border:1px solid var(--hair);
+  background:var(--l2);
+}
+.banner .ic{font-size:var(--t-h3);line-height:1.2;flex:none}
+.banner .body{flex:1;min-width:0}
+/* Only the banner's HEADLINE <b> (a direct child of .body, e.g.
+   `<div class="body"><b>Headline</b><p>...</p></div>`) is meant to sit on its own line. Do
+   NOT widen this to "b" (all descendants): sentences inside the <p> below routinely use a
+   nested <b> for mid-sentence emphasis (e.g. "Use <b>Add a redaction</b> for anything it
+   missed"); matching those too forced them onto their own line, leaving orphaned leading
+   punctuation on the next line. Scope to the direct child only. */
+.banner .body > b{display:block}
+.banner .body p{margin-top:3px;font-size:var(--t-cap);max-width:var(--measure)}
+.banner.honest{background:var(--warn-ghost)}
+.banner.honest b{color:var(--warn)} .banner.honest p{color:var(--fg2)}
+.banner.warn{background:var(--warn-ghost)}
+.banner.warn b{color:var(--warn)} .banner.warn p{color:var(--fg2)}
+.banner.error{background:var(--crit-ghost)}
+.banner.error b{color:var(--crit)} .banner.error p{color:var(--fg2)}
+.banner.info{background:var(--l2)}
+.banner.info b{color:var(--fg)} .banner.info p{color:var(--fg2)}
+.banner.ok{background:var(--good-ghost)}
+.banner.ok b{color:var(--good)} .banner.ok p{color:var(--fg2)}
+
+/* ---- form controls: textarea + input (L1 inset on the L2 card) ---- */
+textarea,.text-input{
+  width:100%;font:inherit;color:var(--fg);background:var(--l1);
+  border:1px solid var(--hair);border-radius:9px;padding:10px 12px;
+  transition:border-color .12s,box-shadow .12s;
+}
+.text-input{font-size:var(--t-ui)}
+textarea{font-family:var(--mono);font-size:var(--t-ui);line-height:1.5;min-height:150px;resize:vertical}
+textarea:focus,.text-input:focus{
+  outline:none;border-color:var(--accent-line);box-shadow:var(--focus);
+}
+textarea::placeholder,.text-input::placeholder{color:var(--fg4)}
+
+/* ---- spinner + working state ---- */
+.spinner{
+  width:18px;height:18px;border-radius:50%;border:2.5px solid var(--accent-line);
+  border-top-color:var(--accent);animation:spin .7s linear infinite;flex:none;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.working{
+  display:flex;align-items:center;gap:11px;color:var(--fg);font-size:var(--t-ui);
+  background:var(--l2);border:1px solid var(--hair);
+  border-radius:var(--r);padding:13px 15px;
+}
+.working .sub{color:var(--fg3);font-size:var(--t-cap);margin-top:1px}
+
+/* ---- empty state: left-set, icon BESIDE the words (centering only for one-liners) ---- */
+.empty{
+  color:var(--fg3);background:var(--l1);border:1px dashed var(--hair);
+  border-radius:var(--r);padding:20px 22px;text-align:left;
+  display:grid;grid-template-columns:auto 1fr;gap:2px 14px;align-items:start;
+}
+.empty .ic{font-size:var(--t-h2);opacity:.55;grid-column:1;grid-row:1 / span 9;margin-bottom:0}
+.empty b{color:var(--fg2);display:block;margin-bottom:3px;grid-column:2}
+.empty p{grid-column:2;max-width:var(--measure)}
+
+/* ---- helpers ---- */
+.hidden{display:none !important}
+.mt0{margin-top:0}
+.mb0{margin-bottom:0}

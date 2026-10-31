@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  lawdataman (Lawbat) — WiX v4/v5 MSI authoring.
+
+  Builds an MSI that wraps:
+    * embedded CPython (the staged python\ dir)
+    * our AGPL source (app\ + desktop\)
+    * vendored site-packages (pip install to a target dir)
+    * vendored binaries: BASE = qpdf + WebView2 bootstrapper; OPTIONAL = Tesseract
+    * the license files the AGPL/GPL deps oblige us to ship
+
+  Launcher decision (CLAUDE.md / host decision #2): NO separate launcher .exe.
+  The MSI creates Start-menu + desktop shortcuts that target the bundled
+  pythonw.exe (windowed, no console) with the arg pointing at desktop\main.py.
+  Fewest AV false positives; nothing to sign beyond the MSI; nothing packed.
+
+  Install scope: per-user / no-admin (host decision #3) for the no-IT pilot. The
+  packaging runbook documents the per-machine variant for GPO/Intune.
+
+  Harvesting: the bulk file payload (python\, app\, desktop\, site-packages\,
+  vendor\) is harvested at build time from the staged tree using WiX v4/v5's
+  NATIVE <Files> element (the modern replacement for heat) — no generated .wxs
+  and no separate harvest tool. Each <Files> sits in its own ComponentGroup the
+  features reference (PayloadPython / PayloadApp / PayloadSite /
+  PayloadVendorBase / PayloadVendorOcr). $(StageDir) is passed at build time.
+
+  Build (PowerShell, after assemble.ps1):
+    $stage = "..\stage\DataRoomReview"   # == $(StageDir)
+    wix build Product.wxs -arch x64 `
+      -d Version=0.1.1 -d StageDir=$stage `
+      -o ..\out\DataRoomReview.msi
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <!--
+    UpgradeCode is the STABLE identity across all versions — never change it, or
+    upgrades stop working (a new version would install side-by-side instead of
+    replacing). ProductCode (the Package/@ProductCode) auto-regenerates per build.
+    >>> If this code was already published, keep it. Otherwise this is the one. <<<
+  -->
+  <?define UpgradeCode = "8E5C2A41-9B3D-4F77-A1E2-6C0D9F4B7A12" ?>
+
+  <!-- Version is injected at build time: wix build -d Version=0.1.1 (CI reads app/__init__.py) -->
+  <?ifndef Version ?><?define Version = "0.1.1" ?><?endif?>
+
+  <!--
+    StageDir = the assembled payload root (build\stage\DataRoomReview) produced by
+    assemble.ps1. Passed at build time: wix build -d StageDir=..\stage\DataRoomReview
+  -->
+  <?ifndef StageDir ?><?define StageDir = "..\stage\DataRoomReview" ?><?endif?>
+
+  <Package
+      Name="Lawbat"
+      Manufacturer="lawdataman"
+      Version="$(Version)"
+      UpgradeCode="$(UpgradeCode)"
+      Compressed="yes"
+      Scope="perUser">
+
+    <!-- Clean upgrades: a newer version removes the older one first. -->
+    <MajorUpgrade
+        AllowSameVersionUpgrades="yes"
+        DowngradeErrorMessage="A newer version of Lawbat is already installed." />
+
+    <!-- Single embedded CAB; keeps the MSI a single self-contained file. -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!--
+      Install wizard: WixUI_InstallDir = Welcome, License, Choose-folder (Browse),
+      Confirm, Progress, Finish. InstallDirectory points at the SAME directory id
+      the file payload installs into (INSTALLFOLDER, defined below under
+      LocalAppData\Programs), so the "Browse" page actually relocates the payload.
+
+      UI-ONLY. This does NOT add any required input or condition: a silent install
+      (msiexec /qn, GPO/Intune) suppresses the dialog set entirely and uses the
+      default per-user INSTALLFOLDER. Scope stays perUser / no-admin (see Package
+      @Scope) — the wizard only lets an interactive user pick the folder.
+    -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(sys.SOURCEFILEDIR)\assets\license.rtf" />
+
+    <Icon Id="AppIcon" SourceFile="$(sys.SOURCEFILEDIR)\assets\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <!-- ARPNOMODIFY is intentionally NOT set here: WixUI_InstallDir already
+         defines it (and provides the maintenance / modify UI), so setting it
+         again collides (WIX0091 duplicate Property). Let the UI extension own it. -->
+
+
+    <!--
+      Per-user install root: %LocalAppData%\Programs\DataRoomReview
+      (the modern per-user "Program Files" equivalent; no admin needed).
+    -->
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="DataRoomReview" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Per-user Start-menu folder for the shortcut. -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppProgramMenuDir" Name="Lawbat" />
+    </StandardDirectory>
+
+    <!-- Desktop shortcut target dir. -->
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!--
+      Features
+      ========
+      Base = app + python + site-packages + qpdf + WebView2 + shortcuts.
+      OCR  = Tesseract + tessdata, optional + can be deselected / set absent so
+             the base install stays lean (no OCR binaries unless wanted).
+    -->
+    <Feature Id="Base"
+             Title="Lawbat (core)"
+             Description="The application, embedded Python, search, qpdf, WebView2."
+             Level="1"
+             AllowAbsent="no"
+             Display="expand">
+      <ComponentGroupRef Id="PayloadPython" />
+      <ComponentGroupRef Id="PayloadApp" />
+      <ComponentGroupRef Id="PayloadSite" />
+      <ComponentGroupRef Id="PayloadVendorBase" />
+      <ComponentGroupRef Id="LicenseFiles" />
+      <ComponentRef Id="AppShortcuts" />
+
+      <Feature Id="Ocr"
+               Title="OCR support (Tesseract)"
+               Description="Optional: text-recognise scanned PDFs and images. Adds ~30-50 MB."
+               Level="1000"
+               AllowAbsent="yes">
+        <!--
+          Level 1000 => NOT installed by default (the typical UI installs <100).
+          The user opts in via the feature tree; or set ADDLOCAL=Ocr on the
+          command line. Keeps the base AV-quiet and small per CLAUDE.md.
+        -->
+        <ComponentGroupRef Id="PayloadVendorOcr" />
+      </Feature>
+
+      <!--
+        Platform core (PREVIEW). The Rust trusted-core substrate: the `host`
+        binary (the wasmtime chokepoint runner) + the `hello.wasm` guest, staged
+        under core\. Small (a host.exe + a tiny wasm). It is shipped so the MSI
+        carries the SAME core that CI builds + the packaging job smoke-checks from
+        the staged tree (host.exe + LAWDATAMAN_SPIKE_GUEST -> SPIKE OK on Windows).
+        It is NOT yet wired to the shortcut/UI (the Python app remains the launched
+        app); this proves the Rust core compiles, packages, and RUNS from the
+        install tree on the target OS. Level 1 = installed by default; AllowAbsent
+        so it can be deselected.
+      -->
+      <Feature Id="Core"
+               Title="Platform core (preview)"
+               Description="The Rust trusted-core runtime + WASM substrate (preview; not yet wired to the UI)."
+               Level="1"
+               AllowAbsent="yes">
+        <ComponentGroupRef Id="PayloadCore" />
+      </Feature>
+    </Feature>
+
+    <!--
+      Shortcuts component: both shortcuts target the bundled pythonw.exe with
+      desktop\main.py as the argument, WorkingDirectory = INSTALLFOLDER so
+      `import app` / `import desktop` resolve (the embedded ._pth adds '..').
+      pythonw.exe == no console window (the windowed launcher per decision #2).
+    -->
+    <Component Id="AppShortcuts" Directory="AppProgramMenuDir" Guid="*">
+      <Shortcut Id="StartMenuShortcut"
+                Name="Lawbat"
+                Description="Local full-text search over an exported data room (offline)."
+                Target="[INSTALLFOLDER]python\pythonw.exe"
+                Arguments="&quot;[INSTALLFOLDER]desktop\main.py&quot;"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon" />
+      <Shortcut Id="DesktopShortcut"
+                Directory="DesktopFolder"
+                Name="Lawbat"
+                Description="Local full-text search over an exported data room (offline)."
+                Target="[INSTALLFOLDER]python\pythonw.exe"
+                Arguments="&quot;[INSTALLFOLDER]desktop\main.py&quot;"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon" />
+      <RemoveFolder Id="CleanProgramMenuDir" Directory="AppProgramMenuDir" On="uninstall" />
+      <!-- Per-user component needs a HKCU keypath. -->
+      <RegistryValue Root="HKCU"
+                     Key="Software\lawdataman\DataRoomReview"
+                     Name="installed"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <!--
+      License files (AGPL/GPL obligation: ship LICENSE + third-party notices).
+      Authored explicitly (not harvested) so the obligation can't silently drop.
+    -->
+    <ComponentGroup Id="LicenseFiles" Directory="INSTALLFOLDER">
+      <Component Id="LicenseMain" Guid="*">
+        <File Id="LICENSE" Source="$(StageDir)\LICENSE" />
+      </Component>
+      <Component Id="LicenseThirdParty" Guid="*">
+        <File Id="THIRD_PARTY_LICENSES.md" Source="$(StageDir)\THIRD_PARTY_LICENSES.md" />
+      </Component>
+    </ComponentGroup>
+
+    <!--
+      WebView2 prerequisite.
+      pywebview needs the Edge WebView2 runtime. It's present on current Win10/11,
+      but to be safe we ship the Evergreen bootstrapper (staged under
+      vendor\webview2\) as a BASE file (harvested in PayloadVendorBase below). For
+      the closed pilot it is acceptable to rely on the OS-present runtime and run
+      the bootstrapper manually if a box lacks it — see the runbook. (A silent
+      install custom action can be added later once tested on a clean VM.)
+    -->
+
+  </Package>
+
+  <!--
+    ===================================================================
+    Harvested payload (WiX v4/v5 native <Files> — the modern heat).
+    Fragments are siblings of <Package>; the ComponentGroups they define are
+    pulled in by the ComponentGroupRefs in the features above, and the
+    INSTALLFOLDER directory id resolves across fragments at link time.
+
+    Each <Files> auto-creates components for every file it matches under
+    $(StageDir). Subdirectory= sets the install-side layout:
+
+      INSTALLFOLDER\python\...         (embedded CPython)
+      INSTALLFOLDER\app\...            (our AGPL source)
+      INSTALLFOLDER\desktop\...        (entry point)
+      INSTALLFOLDER\site-packages\...  (pip target-dir deps)
+      INSTALLFOLDER\vendor\qpdf\...    + vendor\webview2\...  (BASE)
+      INSTALLFOLDER\vendor\tesseract\... (OPTIONAL OCR feature)
+
+    vendor\ is split so OCR is its own feature: the base group has qpdf +
+    webview2 only; the OCR group has ONLY tesseract.
+    ===================================================================
+  -->
+  <Fragment>
+    <ComponentGroup Id="PayloadPython" Directory="INSTALLFOLDER">
+      <Files Include="$(StageDir)\python\**" Subdirectory="python" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="PayloadApp" Directory="INSTALLFOLDER">
+      <Files Include="$(StageDir)\app\**" Subdirectory="app" />
+      <Files Include="$(StageDir)\desktop\**" Subdirectory="desktop" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="PayloadSite" Directory="INSTALLFOLDER">
+      <Files Include="$(StageDir)\site-packages\**" Subdirectory="site-packages" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="PayloadVendorBase" Directory="INSTALLFOLDER">
+      <!-- qpdf (PDF repair) + the WebView2 bootstrapper — but NOT tesseract. -->
+      <Files Include="$(StageDir)\vendor\qpdf\**" Subdirectory="vendor\qpdf" />
+      <Files Include="$(StageDir)\vendor\webview2\**" Subdirectory="vendor\webview2" />
+      <!-- The Rust host<->core CLI bridges the Python shell calls, staged under
+           vendor\core\ by the packaging workflow: viewgen.exe (the Home view-model;
+           app/viewmodel.py) + redact-cli.exe (the Redaction scan/apply;
+           app/redactionmodel.py). The `**` harvests the whole dir, so both ship in
+           BASE — the Home AND the Redaction review are LIVE in the installed app. -->
+      <Files Include="$(StageDir)\vendor\core\**" Subdirectory="vendor\core" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="PayloadVendorOcr" Directory="INSTALLFOLDER">
+      <!-- Tesseract + tessdata — only the OCR feature installs this. -->
+      <Files Include="$(StageDir)\vendor\tesseract\**" Subdirectory="vendor\tesseract" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="PayloadCore" Directory="INSTALLFOLDER">
+      <!-- The Rust trusted-core substrate (PREVIEW): host.exe (the wasmtime
+           chokepoint runner) + hello.wasm (the sandboxed guest), staged under
+           core\ by the packaging workflow's "Build + stage the Rust core" step.
+           Installs to INSTALLFOLDER\core\. Not wired to the shortcut yet. -->
+      <Files Include="$(StageDir)\core\**" Subdirectory="core" />
+    </ComponentGroup>
+  </Fragment>
+</Wix>

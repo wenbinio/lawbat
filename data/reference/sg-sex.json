@@ -1,0 +1,16 @@
+{
+  "category": "sex",
+  "jurisdiction": "SG",
+  "population_N": 4180000,
+  "entries": [
+    {"key": "female", "count": 2147000, "prob": 0.5137},
+    {"key": "male", "count": 2033000, "prob": 0.4863}
+  ],
+  "source_name": "SingStat / population.gov.sg, Population in Brief 2024 (sex ratio: 948 males per 1,000 females among residents; total residents 4.18 million, June 2024)",
+  "source_url": "https://www.population.gov.sg/files/media-centre/publications/Population_in_Brief_2024.pdf",
+  "license": "Singapore Open Data Licence v1.0 (for the underlying SingStat data.gov.sg datasets); the Population in Brief PDF is a government publication",
+  "redistributable": true,
+  "redistribution_notes": "SingStat resident demographic data is published under the Singapore Open Data Licence v1.0 (worldwide, perpetual, royalty-free, distribute/modify/adapt OK, commercial OK) provided a conspicuous source-attribution notice + link to the licence is included. The exact male/female counts here are DERIVED by the agent from two published headline figures: total residents 4.18M and the sex ratio 948:1000 (male:female). prob_female = 1000/1948 = 0.5134; prob_male = 948/1948 = 0.4866 (rounded). Counts are reconstructed, not transcribed from a published M/F count table — flag as derived. For an authoritative split, pull data.gov.sg dataset 'Singapore Residents By Single Year Of Age And Sex' which gives exact M/F counts.",
+  "granularity_notes": "national resident total only; this is the marginal P(sex). A real M/F count by single-year-of-age table exists on data.gov.sg (d_4bd9ffc2595acd61fd1a7f642caf8f36) but could not be fetched (egress policy blocks data.gov.sg and its API from this environment).",
+  "retrieved": "2026-06-26"
+}

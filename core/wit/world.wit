@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// world.wit — MINIMAL v0 substrate SPIKE world.
+//
+// UNSTABLE v0 — DO NOT HARDEN. SPIKE ONLY.
+// ---------------------------------------------------------------------------
+// This is deliberately NOT the full module<->core interface. The real, much
+// larger typed surface is the DRAFT core-api.wit (kept private), which the
+// architecture spec (§3, §10) says must NOT be committed to and must NOT be
+// hardened until a working WASM substrate spike exists. This file IS that
+// spike: the smallest possible world that proves the one idea everything hangs
+// on (spec §0) before the module ABI — a one-way door — is frozen.
+//
+// What the spike proves:
+//   (a) a guest module can make a GRANTED, BROKERED call into the host
+//       (`host` import below), and the host records it at the chokepoint;
+//   (b) the guest is PHYSICALLY UNABLE to reach the network — there is no
+//       egress / socket / filesystem import in its world. The ABSENCE of any
+//       such import IS the guarantee (spec §0, §2.5): you cannot deny what was
+//       never linked in.
+//
+// When the spike signs off (spec §3/§10), the real world grows from the
+// reconciled core-api.wit, not from this file.
+
+package dataroom:spike@0.0.0;
+
+// The single brokered import the host provides to the guest for this spike.
+// Mirrors the `audit.note` chokepoint affordance (spec §2.7, §4.3): the module
+// may ADD context to the core's append-only, hash-chained log; it can never
+// suppress or forge core-logged events. In the spike the host implements this
+// by appending to the audit chain and printing proof of receipt.
+//
+// NOTE the negative space: there is intentionally NO `egress`, NO `socket`, NO
+// `filesystem`, NO `wasi:sockets` here. That omission is the point of the spike.
+interface host {
+  // Brokered, logged note from the guest into the core audit chain.
+  note: func(msg: string);
+}
+
+world spike-module {
+  import host;
+
+  // The guest's single entrypoint. Returns ok or a human-readable error
+  // string (deterministic; never a model call).
+  export run: func() -> result<_, string>;
+}

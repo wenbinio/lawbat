@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[package]
+name = "view"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Shared, inert VIEW-MODEL TYPES — the "cleaner structure" foundation (the
+# dashboard synthesis: host-composition + a shared `core/crates/view` types crate,
+# NO `dashboard` module). Generalizes `search::ResultView`/`ResultRow` into a small
+# vocabulary of sanitized, host-renderable shapes (`Section`/`Card`/`Badge`/
+# `DueLabel`/`Caveat`/`ActionRef`) that ANY module or the host can emit and the host
+# RENDERS (sanitized HTML into a host-provided slot — NO module JS, ratified).
+#
+# DEPENDENCY POLICY (load-bearing): this crate is PURE TYPES with NO dependencies
+# BY DEFAULT — in particular **NO `runtime` dependency**. The view model must be
+# usable by a zero-capability presenter / the host without pulling in the trusted
+# core, and it must carry NOTHING privileged: no capabilities, no Core handle, no
+# matter access, no executable hooks — only inert, display-ready data. A module
+# produces these; the host composes + renders them. Adding ANY *non-optional*
+# dependency here needs explicit sign-off.
+#
+# SERIALIZATION (OPTIONAL — behind the `serde` feature; OFF by default): the THIN
+# subprocess/JSON boundary (the Python shell renders the Rust view-model — NO Rust
+# HTTP server, NO pyo3) needs these inert shapes to serialize to JSON. `serde` is an
+# OPTIONAL dependency gated behind a `serde` feature, so the DEFAULT build stays
+# ZERO-DEP (`cargo tree -p view` with no features shows the crate alone). serde is
+# pure compute — no network / no I/O / no RNG — and only its derive is pulled in; it
+# adds NO capability and NO egress (the crate still carries nothing privileged). Per
+# CLAUDE.md the view stays usable by a zero-capability presenter without serde.
+[dependencies]
+# `alloc` (not full `std`) is enabled so serde's `Serialize` impls for `String` /
+# `Vec` are available when `view` is built standalone with `--features serde`; the
+# crate's shapes are all owned `String`/`Vec`/enums. Kept off the default build.
+serde = { version = "1", optional = true, default-features = false, features = ["derive", "alloc"] }
+
+[features]
+# Opt-in `#[derive(serde::Serialize)]` on the inert view shapes (for the JSON
+# boundary). OFF by default so the pure-types build keeps its zero-dependency
+# guarantee; enable with `--features serde` (e.g. `viewgen` depends on it that way).
+serde = ["dep:serde"]

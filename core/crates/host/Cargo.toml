@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# `host` — the wasmtime-based SPIKE host (spec §3 substrate prototype).
+#
+# It instantiates the `hello` guest component, links ONLY the granted host
+# import (`host.note`), runs the guest's exported `run`, and prints proof that
+# (a) the brokered note was received + recorded in the audit chain, and (b)
+# there is NO egress/network capability in the guest's world (the WIT has none).
+#
+# NOTE: wasmtime's runtime + cranelift are an in-process WASM engine. They are
+# NOT a network stack — no socket is opened here (CLAUDE.md: local-only, no
+# egress). We pull only the runtime + component-model + cranelift features.
+[package]
+name = "host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# SECURITY (C-1): the spike host is a DEV runner, so it opts EXPLICITLY into the
+# `dev-audit-key` feature to use `InMemoryAudit::new()` (the dev-placeholder-keyed
+# constructor). This opt-in is deliberate and visible here in the manifest — never
+# silent. A real production host MUST instead inject a secret via
+# `InMemoryAudit::with_key` and drop this feature.
+runtime = { path = "../runtime", features = ["dev-audit-key"] }
+# wasmtime 45, component model. default-features off so we don't drag in WASI
+# preview1, async, or anything network-shaped we don't need for the spike.
+wasmtime = { version = "45", default-features = false, features = [
+    "std",            # makes wasmtime::Error == anyhow::Error (so `.context` works)
+    "runtime",
+    "cranelift",
+    "component-model",
+] }
+anyhow = "1"

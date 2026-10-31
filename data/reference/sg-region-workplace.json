@@ -1,0 +1,249 @@
+{
+  "category": "region",
+  "jurisdiction": "SG",
+  "population_N": 2208358,
+  "entries": [
+    {
+      "key": "Downtown Core",
+      "count": 284004,
+      "prob": 0.12860415
+    },
+    {
+      "key": "No Fixed Location for Work",
+      "count": 177588,
+      "prob": 0.08041631
+    },
+    {
+      "key": "Queenstown",
+      "count": 131782,
+      "prob": 0.0596742
+    },
+    {
+      "key": "Geylang",
+      "count": 116481,
+      "prob": 0.05274552
+    },
+    {
+      "key": "Bukit Merah",
+      "count": 103575,
+      "prob": 0.04690136
+    },
+    {
+      "key": "Tampines",
+      "count": 84200,
+      "prob": 0.03812788
+    },
+    {
+      "key": "Works from Home",
+      "count": 70800,
+      "prob": 0.03206002
+    },
+    {
+      "key": "Changi",
+      "count": 63747,
+      "prob": 0.02886624
+    },
+    {
+      "key": "Kallang",
+      "count": 63333,
+      "prob": 0.02867877
+    },
+    {
+      "key": "Jurong East",
+      "count": 62478,
+      "prob": 0.02829161
+    },
+    {
+      "key": "Bedok",
+      "count": 59875,
+      "prob": 0.0271129
+    },
+    {
+      "key": "Toa Payoh",
+      "count": 53749,
+      "prob": 0.0243389
+    },
+    {
+      "key": "Ang Mo Kio",
+      "count": 48180,
+      "prob": 0.02181711
+    },
+    {
+      "key": "Jurong West",
+      "count": 45571,
+      "prob": 0.02063569
+    },
+    {
+      "key": "Orchard",
+      "count": 44871,
+      "prob": 0.02031872
+    },
+    {
+      "key": "Woodlands",
+      "count": 43797,
+      "prob": 0.01983238
+    },
+    {
+      "key": "Hougang",
+      "count": 43772,
+      "prob": 0.01982106
+    },
+    {
+      "key": "Novena",
+      "count": 42829,
+      "prob": 0.01939405
+    },
+    {
+      "key": "Tuas",
+      "count": 42328,
+      "prob": 0.01916718
+    },
+    {
+      "key": "Yishun",
+      "count": 41952,
+      "prob": 0.01899692
+    },
+    {
+      "key": "Sembawang",
+      "count": 40152,
+      "prob": 0.01818183
+    },
+    {
+      "key": "Clementi",
+      "count": 38836,
+      "prob": 0.01758592
+    },
+    {
+      "key": "Serangoon",
+      "count": 38451,
+      "prob": 0.01741158
+    },
+    {
+      "key": "Outram",
+      "count": 38402,
+      "prob": 0.01738939
+    },
+    {
+      "key": "Pioneer",
+      "count": 36801,
+      "prob": 0.01666442
+    },
+    {
+      "key": "Bukit Batok",
+      "count": 33792,
+      "prob": 0.01530187
+    },
+    {
+      "key": "Rochor",
+      "count": 31654,
+      "prob": 0.01433373
+    },
+    {
+      "key": "Bishan",
+      "count": 28932,
+      "prob": 0.01310114
+    },
+    {
+      "key": "Western Water Catchment",
+      "count": 28079,
+      "prob": 0.01271488
+    },
+    {
+      "key": "Other Planning Areas or Outside Singapore",
+      "count": 24736,
+      "prob": 0.01120108
+    },
+    {
+      "key": "Pasir Ris",
+      "count": 23751,
+      "prob": 0.01075505
+    },
+    {
+      "key": "Bukit Timah",
+      "count": 21362,
+      "prob": 0.00967325
+    },
+    {
+      "key": "Sungei Kadut",
+      "count": 20753,
+      "prob": 0.00939748
+    },
+    {
+      "key": "Boon Lay",
+      "count": 19300,
+      "prob": 0.00873953
+    },
+    {
+      "key": "Singapore River",
+      "count": 18341,
+      "prob": 0.00830527
+    },
+    {
+      "key": "Sengkang",
+      "count": 17566,
+      "prob": 0.00795433
+    },
+    {
+      "key": "Newton",
+      "count": 13644,
+      "prob": 0.00617835
+    },
+    {
+      "key": "Paya Lebar",
+      "count": 13433,
+      "prob": 0.0060828
+    },
+    {
+      "key": "Western Islands",
+      "count": 13152,
+      "prob": 0.00595556
+    },
+    {
+      "key": "Choa Chu Kang",
+      "count": 13144,
+      "prob": 0.00595193
+    },
+    {
+      "key": "Marine Parade",
+      "count": 12786,
+      "prob": 0.00578982
+    },
+    {
+      "key": "Museum",
+      "count": 12672,
+      "prob": 0.0057382
+    },
+    {
+      "key": "Tanglin",
+      "count": 11742,
+      "prob": 0.00531707
+    },
+    {
+      "key": "Punggol",
+      "count": 9537,
+      "prob": 0.00431859
+    },
+    {
+      "key": "Bukit Panjang",
+      "count": 9091,
+      "prob": 0.00411663
+    },
+    {
+      "key": "Southern Islands",
+      "count": 8009,
+      "prob": 0.00362668
+    },
+    {
+      "key": "Seletar",
+      "count": 5329,
+      "prob": 0.00241311
+    }
+  ],
+  "source_name": "SingStat / data.gov.sg \u2014 Employed Residents by Planning Area of Workplace, Census of Population 2020",
+  "source_url": "https://data.gov.sg/ (dataset: EmployedResidentsByPlanningAreaOfWorkplace2020)",
+  "license": "Singapore Open Data Licence v1.0",
+  "redistributable": true,
+  "redistribution_notes": "ODL v1.0 \u2014 attribution + licence link required. User-supplied from data.gov.sg.",
+  "granularity_notes": "planning area of WORKPLACE (not residence), Census 2020; includes special buckets (No Fixed Location, Works from Home, Other/Outside SG).",
+  "retrieved": "2026-06-26"
+}

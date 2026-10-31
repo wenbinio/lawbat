@@ -1,0 +1,581 @@
+/*
+  Lawbat — Redaction review PAGE-SPECIFIC styles.
+
+  The shared design system (tokens, topbar, .banner, .btn, .chip, .card, form controls,
+  spinner/working, .empty, focus ring, footer) lives in app/ui/base.css and is inlined
+  BEFORE this file (the server substitutes the base-css marker). This file carries ONLY the
+  redaction-flow-specific styles on top: detection settings, tiers + candidate rows,
+  grouping, per-span image review, confidentiality/privilege passages, the dropzone, the
+  file note, and the engine-error banner.
+
+  Self-contained: system font stack only (NO web fonts), no url() to any external resource.
+  Inlined into redaction.html at startup so the page is one air-gapped document.
+*/
+
+/* ---- engine-unavailable banner (rendered into #engineNote by JS) ---- */
+/* Uses the shared .banner.error look; .engine-err keeps the page-specific spacing. */
+.engine-err{margin-bottom:18px}
+
+/* ---- detection settings (opt-in packs) ---- */
+.opts{padding:0}
+.opts>summary{cursor:pointer;padding:13px 18px;font-weight:600;font-size:var(--t-ui);list-style:none}
+.opts>summary::-webkit-details-marker{display:none}
+.opts>summary::before{content:"\25B8";color:var(--fg4);margin-right:8px;font-size:var(--t-label)}
+.opts[open]>summary::before{content:"\25BE"}
+.opts .opts-sum{font-weight:400;color:var(--fg3);font-size:var(--t-cap);margin-left:4px}
+.opts-body{padding:2px 18px 16px;border-top:1px solid var(--hair)}
+.optgrp{border:1px solid var(--hair);border-radius:9px;padding:10px 13px;margin-top:13px}
+.optgrp legend{font-size:var(--t-cap);font-weight:600;color:var(--fg2);padding:0 5px}
+/* quick group selectors ("All" / "Default") on a togglable group's header — compact text
+   buttons, right under the legend, deliberately with no "None" counterpart (see the HTML
+   comment beside each fieldset + GROUP_BOXES in redaction.core.js for the rationale). */
+.grp-actions{display:flex;gap:12px;margin:-2px 0 6px 3px}
+.grp-actions .link{font-size:var(--t-cap);padding:1px 4px}
+.opt-help{color:var(--fg3);font-size:var(--t-cap);margin:2px 0 8px;max-width:var(--measure)}
+.opt-help.warn{color:var(--warn)}
+.opt-row{display:flex;flex-wrap:wrap;gap:8px 18px}
+.opt-row label,.opt-line{display:flex;align-items:flex-start;gap:7px;font-size:var(--t-cap);color:var(--fg2);cursor:pointer}
+.opt-line{margin-bottom:4px}
+.opt-note{color:var(--fg3);font-size:var(--t-cap);font-weight:400;margin-left:4px}
+.optgrp input[type=checkbox]{margin-top:1px;width:15px;height:15px;flex:none;cursor:pointer}
+
+/* the party/names textarea is a short list, not a document paste — override the tall default */
+.terms-box{min-height:78px}
+
+/* ---- input / upload area ---- */
+.apply-row{margin-top:18px;border-top:1px solid var(--hair);padding-top:16px}
+.filebtn{display:inline-block;background:var(--l3);color:var(--fg);border:1px solid var(--hair);
+         border-radius:var(--r-sm);padding:9px 14px;font-size:var(--t-ui);font-weight:600;cursor:pointer}
+.filebtn:hover{border-color:var(--fg4)}
+.filebtn:focus-within{box-shadow:var(--focus);border-radius:var(--r-sm)}
+.filetypes{color:var(--fg3);font-size:var(--t-cap);margin:7px 0 0;max-width:var(--measure)}
+.filetypes code{font-family:var(--mono);background:var(--l3);border-radius:4px;padding:0 4px}
+.filetypes .dz-size{color:var(--fg3)}
+
+/* ---- "Try it with a sample document" row ---- */
+.sample-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.sample-row .hint{margin:0}
+
+/* ---- drag-drop dropzone ---- */
+/* left-set (icon BESIDE the words, never above) — centering is for single-line captions only */
+.dropzone{
+  border:1.5px dashed var(--hair);border-radius:var(--r);
+  padding:16px 18px;text-align:left;background:var(--l1);transition:all .12s;
+  display:grid;grid-template-columns:auto 1fr;gap:2px 14px;align-items:start;
+}
+.dropzone > *{grid-column:2}
+.dropzone:hover{border-color:var(--accent-line);background:var(--accent-ghost)}
+/* JS toggles .dragover on a real dragenter/dragover for a clear hover affordance */
+.dropzone.dragover{border-color:var(--accent);background:var(--accent-ghost);box-shadow:var(--focus)}
+.dropzone .dz-ic{font-size:var(--t-h2);opacity:.6;grid-column:1;grid-row:1 / span 9}
+.dropzone .dz-big{font-weight:600;font-size:var(--t-ui);margin:1px 0 2px;color:var(--fg)}
+
+/* the file note: extracted-N-chars / PDF caveats (low_text, unmapped_fonts) */
+.filenote{background:var(--l1);border:1px solid var(--hair);color:var(--fg2);
+          border-radius:9px;padding:9px 12px;margin-top:11px;font-size:var(--t-cap)}
+.filenote .warns{margin:6px 0 0;padding-left:18px}
+.filenote .warns li{color:var(--fg2);margin:2px 0}
+/* a loud "this looks like a scan" / could-not-remove caveat reuses the warn banner tone */
+.filenote.scanwarn{background:var(--warn-ghost);border-color:var(--hair);color:var(--fg2)}
+.filenote.scanwarn b{color:var(--warn)}
+
+/* ---- summary ---- */
+.summary{font-size:var(--t-ui);color:var(--fg2);margin-bottom:14px}
+.summary b{color:var(--fg);font-variant-numeric:tabular-nums}
+
+/* WARN-ON-DROP: a user TERM too long to redact was NOT sent to the engine. Loud amber tone
+   (same family as .scanwarn) so a silent un-redaction is impossible to miss. */
+.term-drops{background:var(--warn-ghost);border:1px solid var(--hair);color:var(--fg2);
+            border-radius:9px;padding:9px 12px;margin-bottom:14px;font-size:var(--t-cap)}
+.term-drops b{color:var(--warn)}
+.term-drops ul{margin:6px 0 0;padding-left:18px}
+.term-drops li{margin:2px 0;word-break:break-word}
+
+/* ---- tiers ---- */
+.tier{margin-bottom:18px}
+.tier-h{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tier-h h2{font-size:var(--t-body);margin:0}
+.tier-h .count{display:inline-block;min-width:20px;text-align:center;background:var(--l3);
+               color:var(--fg2);border-radius:5px;font:700 var(--t-label)/1.4 var(--mono);
+               font-variant-numeric:tabular-nums;padding:2px 8px;margin-left:6px}
+.tier-actions{display:flex;gap:6px}
+.tier-desc{color:var(--fg3);font-size:var(--t-cap);margin:5px 0 10px;max-width:var(--measure)}
+.empty-tier{color:var(--fg4);font-size:var(--t-cap);padding:4px 0 8px}
+
+/* ---- candidate rows ---- */
+.cand{display:flex;gap:11px;align-items:flex-start;padding:9px 10px;border:1px solid var(--hair);
+      border-radius:9px;margin-bottom:7px;background:var(--l2)}
+.cand:hover{border-color:var(--fg4)}
+/* careful-review rows (the "Please review" tier) carry a 3px warn left border — the tier
+   is signalled on the row itself, not only by the confidence chip (which stays). Advisory
+   and kept rows keep their own distinct left-border treatments. */
+#tier2 > .cand:not(.advisory):not(.kept),#tier2 > .candgroup:not(.advisory){border-left:3px solid var(--warn)}
+.cand input[type=checkbox]{margin-top:3px;width:15px;height:15px;flex:none;cursor:pointer}
+.cand .meta{flex:1;min-width:0}
+/* Cap a pathologically long matched value / context so one finding can't blow the
+   layout. word-break keeps it wrapping; max-height + overflow:auto clamps the cell and
+   scrolls the overflow instead of pushing the page apart. (overflow-wrap also catches a
+   single very long unbroken token.) */
+.cand .val{font-family:var(--mono);font-size:var(--t-ui);color:var(--fg);word-break:break-all;
+  font-variant-numeric:tabular-nums;overflow-wrap:anywhere;max-height:9.5em;overflow:auto}
+.cand .ctx{color:var(--fg3);font-size:var(--t-cap);margin-top:3px;word-break:break-word;
+  overflow-wrap:anywhere;max-height:7em;overflow:auto;max-width:var(--measure)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+/* candidate-row chips: a compact rectangular variant (the page builds them with the
+   .chip class + a recognizer/confidence modifier; keep them distinct from base pills) */
+.cand .chip,.candgroup .chip{border-radius:5px;padding:2px 7px;border:none}
+.chip.rec{background:var(--l3);color:var(--fg2)}
+.chip.high{background:var(--crit-ghost);color:var(--crit)}
+.chip.medium{background:var(--warn-ghost);color:var(--warn)}
+.chip.low{background:var(--l3);color:var(--fg2)}
+.chip.n{background:var(--priv-ghost);color:var(--priv)}
+/* ADVISORY (aggressive-recognizer) candidates: surfaced but DEFAULT-OFF (review-only). A
+   distinct "possible — review" chip + a dashed/muted row accent so the reviewer reads them
+   as opt-in possibles, never as auto-redacted findings. */
+.chip.advisory{background:var(--warn-ghost);color:var(--warn);border:1px dashed var(--warn)}
+.cand.advisory,.candgroup.advisory{border-left:3px dashed var(--warn)}
+/* FEATURE 2 "kept": a value on the Keep list — SHOWN (never hidden) but auto-dismissed +
+   left in the document. Muted so it reads as intentionally-not-redacted, still legible. */
+.chip.kept{background:var(--good-ghost);color:var(--good)}
+.cand.kept{border-left:3px solid var(--good);opacity:.72}
+
+/* ---- review-layer grouping (repeated / boilerplate candidates) ---- */
+.candgroup{border:1px solid var(--hair);border-radius:9px;margin-bottom:7px;background:var(--l2);overflow:hidden}
+.candgroup:hover{border-color:var(--fg4)}
+.cand.grouphead{border:none;border-radius:0;margin-bottom:0;background:var(--l1);align-items:center}
+.cand.grouphead .val{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cand.grouphead .val .ex{font-family:var(--mono);
+        background:var(--l3);border-radius:5px;padding:1px 6px;font-size:var(--t-cap);word-break:break-all}
+.cand.grouphead .val .exmore{color:var(--fg3);font-size:var(--t-cap);font-family:inherit}
+.grouphint{font-style:italic}
+.grouptoggle{flex:none;align-self:flex-start;margin-top:2px;white-space:nowrap}
+.groupmembers{border-top:1px solid var(--hair);background:var(--l1);padding:7px 8px 1px 26px}
+.groupmembers.hidden{display:none}
+.cand.member{background:var(--l2)}
+.groupbox:indeterminate{opacity:.85}
+
+/* ---- per-span image review ---- */
+.img-actions{align-items:center;gap:10px;margin:2px 0 12px}
+#imgPages{display:flex;flex-direction:column;gap:20px}
+.img-page{border:1px solid var(--hair);border-radius:10px;overflow:hidden;background:var(--l1)}
+.img-page .img-cap{display:flex;justify-content:space-between;align-items:center;
+        padding:7px 11px;font-size:var(--t-cap);color:var(--fg3);border-bottom:1px solid var(--hair)}
+.img-page .img-cap b{color:var(--fg2)}
+.img-frame{position:relative;line-height:0;background:var(--l1)}
+.img-frame img{display:block;width:100%;height:auto}
+.img-box{position:absolute;box-sizing:border-box;cursor:pointer;border-radius:2px;
+        transition:background .08s,border-color .08s}
+.img-box.keep{background:rgba(210,99,112,.45);
+        background:color-mix(in srgb,var(--crit) 45%,transparent);border:1.5px solid var(--crit)}
+.img-box.skip{background:transparent;border:1.5px dashed var(--fg4)}
+/* Advisory (aggressive-recognizer) hit in the scanned review: surfaced, marked, DEFAULT-OFF —
+   amber dash so it reads as an opt-in possible, mirroring the born-digital review's chips. */
+.img-box.advisory.skip{border:1.5px dashed var(--warn)}
+.img-box:hover{border-color:var(--accent)}
+.img-box .img-tag{position:absolute;top:-16px;left:0;font:600 var(--t-label)/1 var(--mono);
+        background:var(--bar);color:var(--bar-ink);padding:2px 4px;border-radius:3px;white-space:nowrap;
+        opacity:0;pointer-events:none}
+.img-box:hover .img-tag{opacity:.92}
+.img-page .img-empty{padding:8px 11px;font-size:var(--t-cap);color:var(--warn);background:var(--warn-ghost)}
+
+/* ---- Phase 2: on-page VISUAL PDF preview (display-only highlight boxes) ---- */
+#pdfPreview{padding:0}
+/* stacked (NOT two flex columns): the caption + the click-hint are both long sentences —
+   side-by-side at pane width (~560px at 1440) they each wrapped and visually interleaved.
+   The hint gets its own line at every width instead. */
+#pdfPreview .pp-cap{padding:8px 12px;font-size:var(--t-cap);color:var(--fg3);
+        border-bottom:1px solid var(--hair)}
+#pdfPreview .pp-cap .hint{display:block;margin-top:2px}
+#pdfPreview .pp-cap b{color:var(--fg2)}
+#pdfPreview .pp-note{padding:8px 12px;font-size:var(--t-cap);color:var(--fg3);border-bottom:1px solid var(--hair)}
+.pp-pages{display:flex;flex-direction:column;gap:16px;padding:14px}
+.pp-page{border:1px solid var(--hair);border-radius:8px;overflow:hidden;background:var(--l1)}
+.pp-page .pp-pcap{padding:6px 10px;font-size:var(--t-cap);color:var(--fg3);border-bottom:1px solid var(--hair)}
+.pp-page .pp-pcap b{color:var(--fg2)}
+.pp-frame{position:relative;line-height:0;background:var(--l1)}
+.pp-frame img{display:block;width:100%;height:auto}
+/* a located highlight box: solid = will be removed (accepted); dimmed/dashed = kept */
+.pp-box{position:absolute;box-sizing:border-box;cursor:pointer;border-radius:2px;
+        background:rgba(210,99,112,.32);
+        background:color-mix(in srgb,var(--crit) 32%,transparent);border:1.5px solid var(--crit);
+        transition:background .08s,border-color .08s,opacity .08s}
+.pp-box.kept{background:transparent;border:1.5px dashed var(--fg4);opacity:.7}
+.pp-box:hover,.pp-box.cross{border-color:var(--accent);background:rgba(216,168,60,.28);
+        background:color-mix(in srgb,var(--accent) 28%,transparent)}
+.pp-box .pp-tag{position:absolute;top:-15px;left:0;font:600 var(--t-label)/1 var(--mono);
+        background:var(--bar);color:var(--bar-ink);padding:2px 4px;border-radius:3px;white-space:nowrap;
+        opacity:0;pointer-events:none}
+.pp-box:hover .pp-tag{opacity:.92}
+/* findings that could NOT be pinpointed on the page (unmapped-font residual) */
+.pp-unlocated{padding:8px 12px;font-size:var(--t-cap);color:var(--warn);background:var(--warn-ghost);
+        border-top:1px solid var(--hair)}
+.pp-unlocated b{color:var(--fg2)}
+/* brief flash on the findings-list row when its box is clicked in the preview */
+.cand.cross-flash{outline:2px solid var(--accent);outline-offset:1px;
+        background:var(--accent-ghost)}
+
+/* live "N of M detections will be redacted" count (PDF per-span selection) */
+.pdf-redact-count{font-size:var(--t-ui);color:var(--fg2);padding:6px 10px;border-radius:6px;font-variant-numeric:tabular-nums;
+        background:var(--l3);border:1px solid var(--hair)}
+.pdf-redact-count b{color:var(--fg)}
+.pdf-redact-count.warn{color:var(--warn);background:var(--warn-ghost);border-color:var(--hair)}
+.pdf-redact-count.warn b{color:var(--warn)}
+
+/* ---- Confidentiality / sensitive-content review (surface-only passage highlights) ---- */
+.priv-card{border-color:var(--hair)}
+.priv-card .section-h h2{color:var(--priv)}
+.passtoggle{display:flex;align-items:center;gap:7px;font-size:var(--t-cap);color:var(--fg2);cursor:pointer}
+.passtoggle input[type=checkbox]{width:15px;height:15px;cursor:pointer}
+.pass-caption{color:var(--fg3);font-size:var(--t-cap);margin:6px 0 12px;max-width:var(--measure)}
+.pass-caption b{color:var(--fg2)}
+#passages{display:flex;flex-direction:column;gap:10px}
+.passage{border:1px solid var(--hair);border-left-width:4px;border-radius:8px;
+         padding:9px 12px;background:var(--l2)}
+.passage .preason{font-size:var(--t-cap);font-weight:600;margin-bottom:5px;display:flex;
+         gap:8px;align-items:center;flex-wrap:wrap}
+.passage .ptext{font-size:var(--t-cap);color:var(--fg2);line-height:1.5;white-space:pre-wrap;
+         word-break:break-word;max-width:var(--measure)}
+.passage .psev{font:700 var(--t-label)/1.3 var(--mono);letter-spacing:.04em;border-radius:5px;padding:1px 7px}
+.passage .psev.high{background:var(--crit-ghost);color:var(--crit)}
+.passage .psev.medium{background:var(--warn-ghost);color:var(--warn)}
+.passage.privilege{border-left-color:var(--priv);background:var(--priv-ghost)}
+.passage.privilege .preason{color:var(--priv)}
+.passage.confidentiality{border-left-color:var(--warn);background:var(--warn-ghost)}
+.passage.confidentiality .preason{color:var(--warn)}
+.passage.re_identification{border-left-color:var(--crit);background:var(--crit-ghost)}
+.passage.re_identification .preason{color:var(--crit)}
+.passage .pkw{display:inline-block;background:var(--l3);border:1px solid transparent;
+         border-radius:5px;padding:0 6px;font:600 var(--t-label)/1.5 var(--mono);color:var(--fg2)}
+.passage .pcat{text-transform:uppercase;letter-spacing:var(--track-caps);font-size:var(--t-label);font-family:var(--mono)}
+.pass-empty{color:var(--fg4);font-size:var(--t-cap);padding:4px 0}
+
+/* ---- Re-identification EXPOSURE meter (before -> after tracker) ----
+   An EXPOSURE indicator (count-derived), NOT a safety/anonymity gauge. Band colours run
+   green (low) -> amber (medium) -> red (high/critical); `none` is neutral. */
+.reid-card{border-color:var(--hair)}
+.reid-card .section-h h2{display:flex;align-items:center;gap:8px}
+.reid-caption{color:var(--fg3);font-size:var(--t-cap);margin:6px 0 14px;line-height:1.5;max-width:var(--measure)}
+.reid-caption b{color:var(--fg2)}
+.reid-grid{display:flex;flex-direction:column;gap:12px}
+.reid-bar{border:1px solid var(--hair);border-radius:9px;padding:10px 12px;background:var(--l2)}
+.reid-bar .rb-head{display:flex;align-items:baseline;gap:8px;font-size:var(--t-cap);
+        font-weight:600;color:var(--fg2);margin-bottom:7px;flex-wrap:wrap}
+/* fg3 (not fg4): this label is read, not de-emphasis — fg4 fails contrast at this size */
+.reid-bar .rb-when{text-transform:uppercase;letter-spacing:var(--track-caps);font:600 var(--t-label)/1.3 var(--mono);color:var(--fg3)}
+.reid-bar .rb-idx{font-size:var(--t-ui);font-weight:700;color:var(--fg);margin-left:auto;font-variant-numeric:tabular-nums;font-family:var(--mono)}
+.reid-bar .rb-idx .u{font-size:var(--t-label);font-weight:600;color:var(--fg4)}
+.reid-track{position:relative;height:12px;border-radius:7px;background:var(--l3);
+        border:1px solid var(--hair);overflow:hidden}
+.reid-fill{position:absolute;left:0;top:0;bottom:0;border-radius:7px 0 0 7px}
+.reid-bar.reid-pending{opacity:.7}
+.reid-bar .rb-pending-note{font-size:var(--t-cap);color:var(--fg4)}
+/* band-coloured chip + fill (shared with #reidBandChip) */
+.reid-b-none{background:var(--l3);color:var(--fg4);border:1px solid var(--hair)}
+.reid-b-low{background:var(--good-ghost);color:var(--good);border:1px solid var(--hair)}
+.reid-b-medium{background:var(--warn-ghost);color:var(--warn);border:1px solid var(--hair)}
+.reid-b-high{background:var(--crit-ghost);color:var(--crit);border:1px solid var(--hair)}
+.reid-b-critical{background:var(--crit);color:var(--l0);border:1px solid var(--crit)}
+.reid-fill.reid-f-none{background:var(--fg4)}
+.reid-fill.reid-f-low{background:var(--good)}
+.reid-fill.reid-f-medium{background:var(--warn)}
+.reid-fill.reid-f-high{background:var(--crit)}
+.reid-fill.reid-f-critical{background:var(--crit)}
+#reidBandChip{font:700 var(--t-label)/1.3 var(--mono);letter-spacing:var(--track-caps);text-transform:uppercase;
+        border-radius:5px;padding:2px 9px}
+.reid-delta{font-size:var(--t-cap);color:var(--fg2);margin-top:12px;font-variant-numeric:tabular-nums}
+.reid-delta .rd-num{font-weight:700}
+.reid-delta.rd-down{color:var(--good)}
+.reid-delta.rd-flat{color:var(--fg3)}
+.reid-survive{font-size:var(--t-cap);color:var(--fg2);margin-top:10px;line-height:1.5;
+        background:var(--l3);border:1px solid var(--hair);border-radius:8px;padding:10px 12px}
+.reid-survive b{color:var(--fg)}
+.reid-survive .rs-cat{display:inline-block;background:var(--l2);border:1px solid var(--hair);
+        border-radius:5px;padding:0 6px;font-size:var(--t-cap);font-weight:600;color:var(--fg2);margin:2px 3px 0 0}
+/* "No quasi-identifiers detected" is a NEUTRAL state, never a green "all-clear" — there is no
+   safe state to celebrate here (uncounted vectors, e.g. a unique narrative, still re-identify). */
+.reid-survive.rs-clear{background:var(--l3);border-color:var(--hair)}
+
+/* ---- output ---- */
+#output{min-height:180px;background:var(--l1)}
+
+/* ============================================================================
+   PSEUDONYMIZATION SEAM styles (reserved for the future "AI-safe labels" control).
+   These component styles ship now so the future control (a separate engine/agent)
+   drops in without a CSS change — but the seam markup is empty + hidden today, so
+   nothing renders. See the seam comment in redaction.html.
+   ============================================================================ */
+.repl-choice{display:flex;flex-direction:column;gap:9px}
+.repl-opt{display:flex;gap:11px;align-items:flex-start;cursor:pointer;
+  border:1px solid var(--hair);border-radius:9px;padding:11px 13px;background:var(--l2)}
+.repl-opt:has(input:checked){border-color:var(--accent-line);background:var(--accent-ghost)}
+/* a disabled style option (labels for a PDF document) — visibly inert, not selectable */
+.repl-opt.disabled{opacity:.5;cursor:not-allowed;background:var(--l1)}
+.repl-opt.disabled .dot{border-color:var(--hair)}
+.lbl-tok{font-family:var(--mono);font-size:var(--t-cap);font-weight:600;background:var(--l3);
+  color:var(--fg2);border:1px solid var(--hair);border-radius:4px;padding:0 3px}
+.keycard{background:var(--warn-ghost);border:1px solid var(--hair);border-radius:var(--r);
+  padding:14px 16px;margin-top:14px}
+.keycard .keystrong{font-weight:700;color:var(--warn)}
+.keyrow{display:flex;gap:10px;align-items:baseline;background:var(--l2);border:1px solid var(--hair);
+  border-radius:7px;padding:7px 10px;font-size:var(--t-cap);margin-top:5px}
+.keyrow .k{flex:none;min-width:88px}
+.keyrow .arr{color:var(--fg4);flex:none}
+.keyrow .v{font-family:var(--mono);font-size:var(--t-cap);color:var(--fg2);word-break:break-all}
+.keycard .keyhead{display:flex;gap:11px;align-items:flex-start}
+.keycard .keyhead .ic{font-size:var(--t-h2);line-height:1.1;flex:none;color:var(--warn)}
+.keycard .keyhead > div > b{color:var(--warn);display:block}
+.keycard .keyhead p{margin-top:3px;font-size:var(--t-cap);color:var(--fg2);max-width:var(--measure)}
+.keycard .keytable{display:flex;flex-direction:column;gap:5px;margin-top:12px}
+.rtok{font-family:var(--mono);font-size:var(--t-cap);background:var(--l3);border:1px solid var(--hair);
+  border-radius:4px;padding:0 4px;color:var(--fg2);white-space:nowrap}
+.repl-opt .dot{flex:none;width:17px;height:17px;margin-top:1px;border-radius:50%;
+  border:1.5px solid var(--fg4);background:var(--l1);position:relative;transition:border-color .1s}
+.repl-opt input{position:absolute;opacity:0;width:0;height:0}
+.repl-opt input:checked ~ .dot{border-color:var(--accent)}
+.repl-opt input:checked ~ .dot::after{content:"";position:absolute;left:3.5px;top:3.5px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.repl-opt input:focus-visible ~ .dot{box-shadow:var(--focus)}
+.repl-opt .rtxt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.repl-opt .rtxt > b{font-size:var(--t-ui);color:var(--fg);font-weight:600}
+
+/* ============================================================================
+   SAVE-TO-A-FILE (text path) — the cheap export-format picker shown in the output
+   card after a text apply. Reuses the radio-dot mechanics from .repl-opt.
+   ============================================================================ */
+.savecard{margin-top:16px;border-top:1px solid var(--hair);padding-top:14px}
+.fmt-choice{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.fmt-opt{display:flex;gap:11px;align-items:flex-start;cursor:pointer;position:relative;
+  border:1px solid var(--hair);border-radius:9px;padding:10px 13px;background:var(--l2)}
+.fmt-opt:has(input:checked){border-color:var(--accent-line);background:var(--accent-ghost)}
+.fmt-opt .dot{flex:none;width:17px;height:17px;margin-top:1px;border-radius:50%;
+  border:1.5px solid var(--fg4);background:var(--l1);position:relative;transition:border-color .1s}
+.fmt-opt input{position:absolute;opacity:0;width:0;height:0}
+.fmt-opt input:checked ~ .dot{border-color:var(--accent)}
+.fmt-opt input:checked ~ .dot::after{content:"";position:absolute;left:3.5px;top:3.5px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.fmt-opt input:focus-visible ~ .dot{box-shadow:var(--focus)}
+.fmt-opt .ftxt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fmt-opt .ftxt > b{font-size:var(--t-ui);color:var(--fg);font-weight:600}
+#keyWarn .keystrong{font-weight:700;color:var(--warn)}
+
+/* ============================================================================
+   STAGED IA — stepper, two-pane review, text preview, add-redaction, modal,
+   sensitive-passage ack, export checklist. Ported from
+   designs/redaction-reviewer.dc.html; tokens reused from base.css.
+   ============================================================================ */
+
+/* highlight tints for the document preview (status-mapped) */
+:root{
+  --hl-ready:var(--good-ghost);    --hl-ready-edge:var(--good);
+  --hl-review:var(--warn-ghost);   --hl-review-edge:var(--warn);
+  --hl-rejected:var(--hair);       --hl-rejected-edge:var(--fg4);
+  /* Reserve the FULL sticky-stepper height so the sticky preview-pane top-offset
+     (topbar-h + stepper-h) clears it. Measured from the real box: stepper padding
+     20px + btn padding 16px + two 5px column gaps + .num 26px + .stxt two lines
+     (~33px) + .gatemark min 14px (+1px margin) ≈ 120px. The old 108px under-reserved
+     by ~11px, so the pane overlapped the stepper ~11px when scrolled. */
+  --stepper-h:120px;
+}
+
+/* (.skip / .vh moved to base.css — SHARED: reidrisk.html uses them too) */
+
+/* the wide wrap (review stage two-pane) */
+.wrap.wide{max-width:1240px}
+
+/* ---- STEPPER ---- */
+.stepper{background:var(--l1);border-bottom:1px solid var(--hair);
+  position:sticky;top:var(--topbar-h);z-index:18;padding:10px var(--s6)}
+.stepper ol{list-style:none;margin:0 auto;padding:0;max-width:1240px;
+  display:flex;align-items:flex-start;gap:var(--s3)}
+.step{flex:1;min-width:0}
+.step .btn-step{width:100%;display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;
+  background:transparent;border:1px solid transparent;border-radius:var(--r);padding:8px;color:var(--fg3);font:inherit}
+.step .btn-step:hover:not([aria-disabled="true"]){background:var(--l3)}
+.step .btn-step[aria-disabled="true"]{cursor:default}
+.step .num{flex:none;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:var(--t-ui);font-weight:700;font-variant-numeric:tabular-nums;border:1.5px solid var(--hair);background:var(--l2);color:var(--fg3)}
+.step .stxt{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;max-width:100%}
+.step .stxt .t{display:block;max-width:100%;font-size:var(--t-ui);font-weight:600;color:var(--fg2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}
+.step .stxt .s{display:block;max-width:100%;font-size:var(--t-cap);color:var(--fg3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}
+.step .gatemark,.step .lockmark,.step .donemark,.step .errmark{flex:none;margin-top:1px;font-size:var(--t-cap);
+  font-weight:700;line-height:1.2;white-space:nowrap;letter-spacing:.2px;min-height:14px}
+.step .gatemark{color:var(--warn)}
+.step .lockmark{color:var(--fg3)}
+.step .donemark{color:var(--good)}
+.step .errmark{color:var(--crit)}
+.step.error .num{background:var(--crit-ghost);border-color:var(--crit);color:var(--crit)}
+.step.error .stxt .t{color:var(--crit)}
+.step.done .num{background:var(--good);border-color:var(--good);color:var(--l0)}
+.step.current .btn-step{background:var(--accent-ghost);border-color:var(--accent-line)}
+.step.current .num{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.step.current .stxt .t{color:var(--accent)}
+.step.locked .num{border-style:dashed}
+.step.locked .stxt .t{color:var(--fg3)}
+.step.gate .num{background:var(--warn-ghost);border-color:var(--hair);color:var(--warn)}
+.stepper .conn{flex:none;align-self:flex-start;width:18px;height:2px;background:var(--hair);
+  border-radius:2px;margin-top:21px}
+@media (max-width:920px){
+  .step .stxt .s{display:none}
+  .stepper ol{gap:var(--s2)}
+  .stepper .conn{width:10px}
+}
+
+/* ---- stages ---- */
+.stage{display:none}
+.stage.show{display:block}
+
+/* ---- two-pane review ---- */
+.review2{display:grid;grid-template-columns:minmax(360px,1.05fr) minmax(380px,1fr);gap:var(--s4);align-items:start}
+@media (max-width:1080px){.review2{grid-template-columns:1fr}}
+.preview-pane{position:sticky;top:calc(var(--topbar-h) + var(--stepper-h) + 4px)}
+@media (max-width:1080px){.preview-pane{position:static}}
+.preview-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.preview-head h2{font-size:var(--t-body)}
+.preview-note{display:flex;gap:9px;align-items:flex-start;background:var(--l1);
+  border:1px solid var(--hair);border-radius:9px;padding:9px 12px;margin-bottom:10px;
+  font-size:var(--t-cap);line-height:1.5;color:var(--fg2)}
+.preview-note .ic{flex:none;line-height:1.4;font-size:var(--t-ui)}
+.preview-note b{color:var(--fg)}
+
+/* the faux text page */
+.pageframe{border:1px solid var(--hair);border-radius:var(--r);background:var(--l2);
+  padding:0;overflow:hidden}
+.pagecanvas{position:relative;background:var(--l1);padding:34px 38px 40px;min-height:240px;
+  white-space:pre-wrap;word-break:break-word}
+
+/* a highlight over detected text (inline span) */
+.hl{border-radius:3px 3px 0 0;padding:0 1px;cursor:pointer;position:relative;
+  border-bottom:2px solid var(--edge,var(--warn));background:var(--fill,var(--hl-review))}
+.hl:hover{filter:brightness(.97)}
+.hl:focus-visible{box-shadow:var(--focus)}
+.hl.ready{--fill:var(--hl-ready);--edge:var(--hl-ready-edge)}
+.hl.review{--fill:var(--hl-review);--edge:var(--hl-review-edge)}
+.hl.redacted-preview{--fill:var(--hl-rejected);--edge:var(--fg2);color:var(--fg2);font-family:var(--mono)}
+.hl .hlmark{font-family:var(--mono);font-weight:600;color:var(--fg2)}
+
+/* preview legend */
+.preview-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:10px;font-size:var(--t-cap);color:var(--fg3)}
+.preview-legend .lg{display:inline-flex;align-items:center;gap:6px}
+.preview-legend .sw{width:13px;height:11px;border-radius:3px 3px 0 0;flex:none;border-bottom:2px solid var(--edge)}
+.preview-legend .sw.ready{background:var(--hl-ready);--edge:var(--hl-ready-edge)}
+.preview-legend .sw.review{background:var(--hl-review);--edge:var(--hl-review-edge)}
+.preview-legend .sw.rejected{background:var(--hl-rejected);--edge:var(--hl-rejected-edge)}
+
+/* ADD-A-REDACTION panel */
+.add-redaction .ar-head{display:flex;gap:11px;align-items:flex-start}
+.add-redaction .ar-head .ic{font-size:var(--t-h3);color:var(--accent);line-height:1.2;flex:none}
+.add-redaction .ar-head b{font-size:var(--t-ui);color:var(--fg)}
+.ar-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:7px}
+.ar-row .text-input{flex:1;min-width:180px}
+
+/* ---- findings pane: unresolved strip + tier markers ---- */
+.unresolved-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--warn-ghost);border:1px solid var(--hair);border-radius:var(--r);
+  padding:11px 14px;margin-bottom:12px}
+.unresolved-bar.clear{background:var(--good-ghost);border-color:var(--hair)}
+.unresolved-bar .big{font-size:var(--t-h2);font-weight:700;color:var(--warn);line-height:1;flex:none;font-variant-numeric:tabular-nums;font-family:var(--mono)}
+.unresolved-bar.clear .big{color:var(--good)}
+.unresolved-bar .ub-txt{flex:1;min-width:140px}
+.unresolved-bar .ub-txt b{color:var(--fg2)}
+.unresolved-bar .ub-txt .s{font-size:var(--t-cap);color:var(--fg3)}
+.tier-h .left{display:flex;align-items:center;gap:9px}
+.tier-h .marker{width:10px;height:10px;border-radius:50%;flex:none}
+.tier-h .marker.ready{background:var(--good)} .tier-h .marker.todo{background:var(--warn)}
+
+/* ---- sensitive-passage acknowledge ---- */
+.passage .pacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px;align-items:center}
+.check.ack{display:inline-flex;align-items:center;gap:7px;font-size:var(--t-cap);color:var(--fg2);cursor:pointer}
+.check.ack input{width:15px;height:15px;cursor:pointer}
+
+/* ---- lightweight POPOVER / MODAL ---- */
+.modal-overlay{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.45);
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.hidden{display:none}
+.modal{background:var(--l2);border:1px solid var(--hair);border-radius:var(--r);
+  width:100%;max-width:480px;padding:18px 20px;max-height:88vh;overflow:auto}
+.modal .mh{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.modal .mh .ic{font-size:var(--t-h2);color:var(--priv);line-height:1;flex:none}
+.modal .mh h3{font-size:var(--t-body);color:var(--priv)}
+.modal .mh .mx{margin-left:auto;background:transparent;border:1px solid var(--hair);color:var(--fg3);
+  border-radius:6px;padding:3px 9px;font-size:var(--t-ui);cursor:pointer;flex:none}
+.modal .mh .mx:hover{background:var(--l3);color:var(--fg2)}
+.modal .mbody{font-size:var(--t-ui);color:var(--fg2);line-height:1.55}
+.modal .mquote{background:var(--priv-ghost);border:1px solid var(--hair);border-radius:8px;
+  padding:10px 12px;margin:10px 0;font-size:var(--t-cap);color:var(--fg2);line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.modal .mwhy{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0}
+.modal .macts{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px;align-items:center}
+
+/* ============================================================================
+   PROGRESSIVE DISCLOSURE — the compression pass. A short, decisive label (a status
+   chip + one-line summary) stays visible; the full cautionary / technical text is
+   RELOCATED behind a "Why?" / "Details" expandable (native <details>/<summary>, so it
+   is keyboard-accessible with no framework). No caveat is deleted — only relocated.
+   ============================================================================ */
+.disclosure{border:1px solid var(--hair);border-radius:var(--r);background:var(--l1);margin-bottom:14px}
+.disclosure>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;
+  padding:9px 12px;font-size:var(--t-cap);color:var(--fg2)}
+.disclosure>summary::-webkit-details-marker{display:none}
+.disclosure>summary .dsum{flex:1;min-width:0}
+.disclosure>summary .dwhy{flex:none;font-size:var(--t-cap);font-weight:600;color:var(--accent);
+  background:var(--accent-ghost);border:1px solid var(--accent-line);border-radius:6px;padding:1px 8px}
+.disclosure[open]>summary .dwhy::after{content:" \25BE"}
+.disclosure>summary:focus-visible{box-shadow:var(--focus);border-radius:var(--r);outline:none}
+.disclosure .dbody{padding:2px 14px 12px;border-top:1px solid var(--hair);font-size:var(--t-cap);color:var(--fg3)}
+.disclosure .dbody p{margin-top:8px;line-height:1.5;max-width:var(--measure)}
+.disclosure .dbody b{color:var(--fg2)}
+/* the first-pass / gate disclosures carry the honest amber tone even collapsed */
+.disclosure.firstpass,.disclosure.gate{background:var(--warn-ghost);border-color:var(--hair)}
+.disclosure.firstpass>summary .dsum,.disclosure.gate>summary .dsum{color:var(--fg2)}
+.disclosure.firstpass .dbody p,.disclosure.gate .dbody p{color:var(--fg2)}
+.disclosure .reid-caption,.disclosure .pass-caption{margin:0}
+
+/* ---- status chip strip (under the stepper) ---- */
+.chipbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  max-width:1240px;margin:0 auto;padding:10px var(--s6) 0}
+.chipbar .chip{cursor:default}
+
+/* ---- folded-in sensitive-passages block inside Review ---- */
+.review-sensitive{margin-top:var(--s4);display:flex;flex-direction:column;gap:var(--s3)}
+
+/* ---- Report stage chips + actions ---- */
+.report-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+#reportActions{align-items:center;gap:10px}
+
+/* ---- export gating checklist ---- */
+.checklist{display:flex;flex-direction:column;gap:9px}
+.cl-item{display:flex;gap:11px;align-items:flex-start;border:1px solid var(--hair);
+  border-radius:9px;padding:11px 13px;background:var(--l2)}
+.cl-item .ci{flex:none;width:22px;height:22px;border-radius:6px;display:flex;align-items:center;
+  justify-content:center;font-size:var(--t-ui);font-weight:700;margin-top:1px}
+.cl-item.ok .ci{background:var(--good-ghost);color:var(--good);border:1px solid var(--hair)}
+.cl-item.block .ci{background:var(--crit-ghost);color:var(--crit);border:1px solid var(--hair)}
+.cl-item.warn .ci{background:var(--warn-ghost);color:var(--warn);border:1px solid var(--hair)}
+.cl-item .clbody{flex:1;min-width:0}
+.cl-item .clbody b{font-size:var(--t-ui);color:var(--fg)}
+.cl-item .clbody p{font-size:var(--t-cap);color:var(--fg3);margin-top:2px;max-width:var(--measure)}
+.cl-item .clact{flex:none;align-self:center}
+.btn.sm{padding:6px 11px;font-size:var(--t-cap)}
+.btn.lg{padding:11px 20px;font-size:var(--t-body)}
+
+/* ===== TERMS import + BATCH (folder) mode ===== */
+.terms-import{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.filebtn.sm{padding:5px 11px;font-size:var(--t-cap)}
+.batch-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.batch-panel{margin-top:16px}
+.batch-estimate{margin-top:6px}
+.batch-strip{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.batch-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.batch-item{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:8px 12px;border:1px solid var(--hair);border-radius:8px;background:var(--l2)}
+.batch-item.active{border-color:var(--accent)}
+.batch-item.error{border-color:var(--crit)}
+.batch-item .bi-main{flex:1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.batch-item .bi-name{font-weight:600;color:var(--fg2);word-break:break-word}
+.batch-item .bi-find{font-size:var(--t-cap);font-variant-numeric:tabular-nums}
+.batch-item .bi-act{flex:none}
+.batch-item .batch-err{flex-basis:100%}
+.batch-actions{margin-top:14px}
+.batch-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:8px 14px;border:1px solid var(--hair);border-radius:8px;background:var(--l1)}
+.batch-bar .batch-bar-label{font-weight:600;color:var(--fg2)}
+.batch-bar .batch-bar-actions{display:flex;gap:8px;flex-wrap:wrap}

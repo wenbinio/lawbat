@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[package]
+name = "inbox"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# The email-triage module — the productivity dashboard's BRAIN. The brokered
+# shape, the type surface, the capability declaration, and the DETERMINISTIC
+# triage LOGIC (triage / dateparse / classify) are all built out. Email IS the
+# `document` data class, read through the EXISTING mediated `matter.read` path —
+# no `mail.read` capability, no mail subsystem, no new `Core` method.
+#
+# It mirrors module #1 (redaction): a NATIVE first-party module bound directly to
+# the trusted-core `Core` traits/methods — no WASM this increment.
+#
+# DEPENDENCY POLICY (CLAUDE.md non-negotiables): DETERMINISTIC triage ONLY.
+# NO model / LLM / ML / Presidio / spaCy / Python / network deps — anywhere.
+# Triage (gist/action/priority), date parsing, and internal/external
+# classification are ALL rule-based. This crate depends on exactly two things:
+#   - `runtime` (the trusted core) — to reach the mediated matter.read:document
+#                                    read path + the audit chain.
+#   - `regex`   (pure compute)     — the deterministic date scanner's fixed
+#                                    patterns. Same posture as redaction: the
+#                                    `regex` crate is linear-time (no
+#                                    backtracking -> no ReDoS), no RNG, no I/O;
+#                                    all patterns are FIXED literals (never
+#                                    user-supplied, never empty). NOT a model.
+# Adding ANY other dependency here needs explicit sign-off. Date parsing is a
+# hand-rolled deterministic scanner (pure civil-date integer arithmetic) over
+# `regex` shapes — never a date model / NLP library.
+[dependencies]
+runtime = { path = "../runtime" }
+regex = "1"
+# The shared INERT view-model types (the "cleaner structure" base). PURE TYPES, no
+# `runtime`/no capabilities — inbox maps its worklist into host-renderable
+# Section/Card/Badge/DueLabel/Caveat shapes via `to_view`. No new transitive deps:
+# `view` itself depends on nothing.
+view = { path = "../view" }
+
+# SECURITY (C-1): inbox's NON-test code binds the production `Core` traits only and
+# never touches the dev audit key. Its TEST suite wires the deterministic
+# `InMemoryAudit::with_clock(FixedClock::..)` doubles, which `runtime` gates behind
+# its `dev-audit-key` feature. Enable that feature for tests ONLY via a
+# dev-dependency, so the shipped library never pulls the dev key in (mirrors redaction).
+[dev-dependencies]
+runtime = { path = "../runtime", features = ["dev-audit-key"] }

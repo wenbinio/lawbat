@@ -1,0 +1,16 @@
+{
+  "category": "sex",
+  "jurisdiction": "US",
+  "population_N": 331449281,
+  "entries": [
+    {"key": "female", "count": 168758041, "prob": 0.5092},
+    {"key": "male", "count": 162685811, "prob": 0.4908}
+  ],
+  "source_name": "U.S. Census Bureau, 2020 Census — Age and Sex Composition: 2020 (C2020BR-06). Females 50.9% (168.8M), males 49.1% (162.7M); total 331,449,281",
+  "source_url": "https://www.census.gov/library/publications/2023/decennial/c2020br-06.html",
+  "license": "U.S. Government work / PUBLIC DOMAIN (17 U.S.C. 105). Free to reuse and redistribute.",
+  "redistributable": true,
+  "redistribution_notes": "SHIPPABLE. The percentages (49.1% male / 50.9% female) and the total (331,449,281) are published 2020-Census headline figures. The exact M/F counts (162,685,811 male; 168,758,041 female) reproduce the values reported in coverage of the Age & Sex Composition brief; for a citation-clean count pull the C2020BR-06 brief or table P12 directly. prob = count/total.",
+  "granularity_notes": "National marginal P(sex), 2020 Census. By-state and by-single-year-of-age x sex tables exist (table P12, fully public domain) for finer marginals.",
+  "retrieved": "2026-06-26"
+}

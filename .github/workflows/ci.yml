@@ -1,0 +1,197 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check app desktop tests
+
+  test:
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is the real target — it exercises the \\?\ long-path walker,
+        # FTS5 in the runner's Python, file locking, and the socket bootstrap
+        # that can't be tested on the Linux dev box.
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: UI JS parse gate (node --check over app/ui/*.js)
+        # Every served UI JS file must PARSE. The page tests are substring-only, which is
+        # the exact class of gap that once let a stray byte into redaction.js — a syntax
+        # error in a served script would silently break the whole page. `node` is
+        # preinstalled on GitHub runners. NOTE: app/ui/redaction.state.js DELIBERATELY
+        # contains one raw NUL byte INSIDE a string literal (a collision-proof grouping-key
+        # separator, formerly in the pre-split redaction.js); that is valid JavaScript and
+        # `node --check` accepts it (verified on node 22), so no strip-to-temp-copy
+        # workaround is needed — do NOT "clean" that byte to make a checker happy.
+        #
+        # redaction.js was split into ordered fragments (app.ui_manifest.REDACTION_JS_PARTS,
+        # a dependency-free module — importable here BEFORE the Python test stack below is
+        # installed) at its own section-comment boundaries; together they form ONE outer
+        # IIFE, so most fragments are NOT independently valid JavaScript. This checks every
+        # STANDALONE app/ui/*.js file individually (base.js/home.js/dataroom.js/reidrisk.js
+        # — same as the pre-split gate covered one-for-one) AND separately node --checks the
+        # ASSEMBLED script per page (base.js + that page's JS, in the exact order
+        # app.web._build_*_page() concatenates them) — the local twin is
+        # tests/test_smoke.py's test_ui_js_parse_gate_node_check(). `shell: bash` is
+        # REQUIRED (windows-latest defaults `run:` to PowerShell, which can't parse this).
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(app/ui/*.js)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::no app/ui/*.js files found — the parse gate has nothing to check"
+            exit 1
+          fi
+
+          # tr -d '\r' is LOAD-BEARING on windows-latest: Python's stdout is text-mode
+          # CRLF there, and a retained \r makes the assemble loop below cat a file
+          # named "redaction.core.js<CR>" — which doesn't exist. Ubuntu is unaffected.
+          base_js=$(PYTHONPATH=. python3 -c "import app.ui_manifest as m; print(m.BASE_JS)" | tr -d '\r')
+          frags=$(PYTHONPATH=. python3 -c "
+          import app.ui_manifest as m
+          for f in m.REDACTION_JS_PARTS:
+              print(f)
+          " | tr -d '\r')
+
+          n_standalone=0
+          for f in "${files[@]}"; do
+            base="$(basename "$f")"
+            if grep -qxF "$base" <<< "$frags"; then
+              echo "skip (redaction fragment, checked assembled below): $f"
+              continue
+            fi
+            echo "node --check $f"
+            node --check "$f"
+            n_standalone=$((n_standalone + 1))
+          done
+
+          # node's ESM-vs-CJS format detection (Node 22) is EXTENSION-based even for
+          # `node --check`, so the temp file needs a .js suffix or the check itself errors
+          # out before it can even look at the syntax.
+          assembled=$(mktemp --suffix=.js)
+          {
+            cat "app/ui/$base_js"
+            while IFS= read -r frag; do cat "app/ui/$frag"; done <<< "$frags"
+          } > "$assembled"
+          echo "node --check (assembled: redaction = $base_js + $(wc -l <<< "$frags") fragments)"
+          node --check "$assembled"
+          rm -f "$assembled"
+
+          for page_js in home.js dataroom.js reidrisk.js; do
+            assembled2=$(mktemp --suffix=.js)
+            cat "app/ui/$base_js" "app/ui/$page_js" > "$assembled2"
+            echo "node --check (assembled: $base_js + $page_js)"
+            node --check "$assembled2"
+            rm -f "$assembled2"
+          done
+
+          echo "UI JS parse gate: OK ($n_standalone standalone files + 4 assembled scripts checked)"
+      - name: Install headless test stack
+        # Subset of requirements.txt (no pywebview/extract-msg/pyinstaller —
+        # not needed for headless tests). Mirrors the SessionStart hook.
+        # `pillow` is REQUIRED by the image-redaction / OCR tests (app/imageredact.py
+        # does `from PIL import Image, ImageDraw` at runtime; PyMuPDF does NOT provide
+        # PIL), so the tests hard-fail with ImportError without it. (pypdfium2 is OPTIONAL
+        # here — the fitz raster fallback in app/ocr.py covers the OCR render path.)
+        run: pip install fastapi "uvicorn[standard]" pymupdf python-docx openpyxl python-pptx httpx pillow
+      - name: Smoke tests
+        run: python tests/test_smoke.py
+      - name: End-to-end (real server)
+        run: python tests/test_e2e.py
+      - name: Desktop shell guards (socket sockopt + folder-dialog dispatch)
+        # Windows CI here is where the SO_EXCLUSIVEADDRUSE branch + the COM-STA
+        # dialog dispatch helpers actually get the platform-correct path exercised.
+        run: python tests/test_desktop.py
+
+  core:
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        # The Rust trusted core ships in the same MSI as the Python app, so
+        # Windows is a real target, not an afterthought — it's where the
+        # wasm32-wasip2 guest build, wasmtime host spike, and long-path
+        # behaviour actually get exercised. Mirrors the documented local
+        # sequence (core/README.md "Build & run", CLAUDE.md "Build/run").
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain (+ clippy, wasm32-wasip2)
+        # Pinned to 1.96 (CLAUDE.md "Build / test / CI": a green LOCAL gate != green
+        # CI unless verified on the SAME toolchain CI uses). Deliberately NOT pinned
+        # via a repo-level rust-toolchain.toml: the dev sandbox is egress-blocked, so
+        # rustup can't fetch a pinned toolchain there, and that would break local
+        # builds — the pin lives here, in the workflow, instead.
+        uses: dtolnay/rust-toolchain@1.96
+        with:
+          # rustfmt must be listed explicitly — a version-pinned toolchain install
+          # does not include it by default (the fmt gate failed 'cargo-fmt is not
+          # installed' without this; the old @stable alias happened to bundle it).
+          components: clippy, rustfmt
+          targets: wasm32-wasip2
+      - name: Build core (runtime + host) for the host triple
+        run: cargo build --locked
+      - name: Guard — the minimal trusted core (runtime) stays RNG-free (no getrandom/rand)
+        # NOTE: `shell: bash` is REQUIRED — windows-latest defaults `run:` to PowerShell,
+        # which cannot parse this POSIX `for … do … done` loop (ParserError "Missing
+        # opening '(' after keyword 'for'"). GitHub runners ship Git Bash on Windows, so
+        # `shell: bash` runs this identically on ubuntu + windows.
+        shell: bash
+        # The data-plane PDF crates (redaction, extract) intentionally pull `lopdf`,
+        # which brings a transitive `getrandom`/`rand` (PDF-encryption support this
+        # codebase never invokes). That is ACCEPTED in the data plane but must NEVER
+        # reach the MINIMAL TRUSTED CORE `runtime` (CLAUDE.md: only sha2+hmac, "no
+        # RNG/getrandom"). We check `runtime` ONLY: `host` is the wasmtime spike-runner
+        # whose deps legitimately include an RNG on some platforms (e.g. wasmtime on
+        # Windows), and `host` does NOT depend on redaction/extract, so lopdf's RNG
+        # can never reach it — checking it would be a platform-flaky false positive.
+        # `cargo tree -p runtime -i <pkg>` exits 0 iff <pkg> is in runtime's tree, so a
+        # SUCCESS here means an RNG crate leaked into the core → fail the build.
+        run: |
+          for pkg in getrandom rand rand_core rand_chacha; do
+            if cargo tree -p runtime -i "$pkg" >/dev/null 2>&1; then
+              echo "::error::$pkg reached the minimal trusted core (runtime) — RNG must not enter runtime"
+              cargo tree -p runtime -i "$pkg" || true
+              exit 1
+            fi
+          done
+          echo "core RNG-free guard: OK (no getrandom/rand/rand_core/rand_chacha in runtime)"
+      - name: Clippy (deny warnings)
+        run: cargo clippy --all-targets --locked -- -D warnings
+      - name: Core tests (runtime seams + redaction module)
+        run: cargo test --locked
+      - name: Build the wasm32-wasip2 guest component
+        # The guest is in members but not default-members (only compiles for
+        # wasm32-wasip2), so a bare build skips it — this explicit step is
+        # required (core/README.md step 2, CLAUDE.md).
+        run: cargo build -p hello --target wasm32-wasip2 --release --locked
+      - name: Formatting (cargo fmt --check)
+        run: cargo fmt --all --check
+      - name: Run the substrate spike (end-to-end sandbox gate)
+        # Exits non-zero on a failed invariant (PROOF (a)/(b)), so the run
+        # itself is the assertion.
+        run: cargo run -p host

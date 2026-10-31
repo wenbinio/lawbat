@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lawbat — local data-room search &amp; redaction (demo)</title>
+<style>
+  :root{
+    --ink:#15212e; --muted:#5c6b7a; --line:#dfe5ec; --bg:#f5f7fa; --card:#fff;
+    --accent:#1f5c8f; --accent-d:#16486f; --good:#15803d; --warn:#b45309; --bad:#b91c1c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+  header{background:var(--ink);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header .logo{font-weight:700;font-size:19px;letter-spacing:.3px}
+  header .tag{color:#aeb9c4;font-size:13px}
+  .badge{margin-left:auto;background:#0c2a1b;color:#7ee2a8;border:1px solid #1c6b43;border-radius:999px;padding:4px 11px;font-size:12px;font-weight:600;white-space:nowrap}
+  nav{display:flex;gap:2px;background:var(--card);border-bottom:1px solid var(--line);padding:0 14px}
+  nav button{background:none;border:none;padding:13px 18px;font:inherit;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent}
+  nav button.active{color:var(--accent);border-bottom-color:var(--accent)}
+  main{max-width:980px;margin:0 auto;padding:22px}
+  .panel{display:none}
+  .panel.active{display:block}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
+  h2{margin:.1em 0 .5em;font-size:17px}
+  h3{margin:1em 0 .4em;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  p.note{color:var(--muted);font-size:13px;margin:.3em 0}
+  button.btn{background:var(--accent);color:#fff;border:none;border-radius:7px;padding:9px 15px;font:inherit;font-weight:600;cursor:pointer}
+  button.btn:hover{background:var(--accent-d)}
+  button.btn.ghost{background:#eef2f6;color:var(--accent)}
+  button.btn.ghost:hover{background:#e2e9f0}
+  input[type=text],textarea{width:100%;border:1px solid var(--line);border-radius:7px;padding:10px;font:inherit;color:var(--ink);background:#fff}
+  textarea{min-height:200px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13.5px;line-height:1.55}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .stat{color:var(--muted);font-size:13px}
+  mark{background:#fde68a;padding:0 1px;border-radius:2px}
+  .result{border-top:1px solid var(--line);padding:12px 0}
+  .result:first-child{border-top:none}
+  .result .fn{font-weight:600;color:var(--accent)}
+  .result .meta{color:var(--muted);font-size:12px}
+  .result .snip{margin-top:5px;font-size:14px;color:#28333f}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  .pill{display:inline-block;border-radius:999px;padding:1px 9px;font-size:11.5px;font-weight:600}
+  .pill.ok{background:#e7f6ec;color:var(--good)}
+  .pill.skip{background:#fdeaea;color:var(--bad)}
+  .pill.high{background:#fdeaea;color:var(--bad)}
+  .pill.med{background:#fef3e2;color:var(--warn)}
+  .finding{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
+  .finding:first-child{border-top:none}
+  .finding code{background:#f1f4f7;border-radius:4px;padding:1px 5px;font-size:13px}
+  .finding .ftype{font-size:12px;color:var(--muted);min-width:96px}
+  .out{white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13.5px;background:#0f1722;color:#e6edf3;border-radius:8px;padding:14px;line-height:1.6;max-height:340px;overflow:auto}
+  .out .blk{color:#0f1722;background:#0f1722;border-radius:2px}
+  .honest{background:#fffaf0;border:1px solid #f0dca8;border-radius:8px;padding:11px 14px;font-size:13px;color:#7c5b16}
+  .empty{color:var(--muted);font-style:italic;padding:10px 0}
+  .summary{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px}
+  .kpi{background:#eef2f6;border-radius:7px;padding:7px 11px;font-size:13px}
+  .kpi b{font-size:15px}
+  footer{max-width:980px;margin:0 auto;padding:8px 22px 40px;color:var(--muted);font-size:12px}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">⚖ Lawbat</span>
+  <span class="tag">local data-room review · search &amp; redaction</span>
+  <span class="badge">● LOCAL ONLY — no network · no cloud · no AI</span>
+</header>
+
+<nav>
+  <button data-tab="search" class="active">Search</button>
+  <button data-tab="schedule">Document schedule</button>
+  <button data-tab="redact">Redact</button>
+</nav>
+
+<main>
+  <!-- SEARCH -->
+  <section id="search" class="panel active">
+    <div class="card">
+      <h2>Search an exported data room</h2>
+      <p class="note">Point Lawbat at a folder of exported matter files. It indexes the text on
+        your machine and gives you ranked full-text search — nothing is uploaded.</p>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="pickFolder">Load a folder…</button>
+        <input type="file" id="folderInput" webkitdirectory directory multiple class="hidden">
+        <button class="btn ghost" id="loadSample">Load sample data room</button>
+        <span class="stat" id="indexStat">No documents indexed yet.</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row">
+        <input type="text" id="q" placeholder="Search the data room (e.g. retainer, discovery, Condor)…" style="flex:1">
+        <button class="btn" id="goSearch">Search</button>
+      </div>
+      <div id="results"></div>
+    </div>
+  </section>
+
+  <!-- SCHEDULE -->
+  <section id="schedule" class="panel">
+    <div class="card">
+      <h2>Schedule of documents</h2>
+      <p class="note">A read-only inventory of the loaded data room — the kind of "document index"
+        a reviewer hands opposing counsel or the court. Export it as CSV.</p>
+      <div class="summary" id="schedKpis"></div>
+      <div class="row" style="margin-bottom:8px">
+        <button class="btn ghost" id="exportCsv">Export CSV</button>
+      </div>
+      <div id="schedTable"></div>
+    </div>
+  </section>
+
+  <!-- REDACT -->
+  <section id="redact" class="panel">
+    <div class="card">
+      <h2>Redact identifiers</h2>
+      <p class="note">Deterministic detection of emails, card numbers, IBANs, IDs, phones, IPs and
+        URLs — regex + checksums, <b>no AI</b>. You review each hit; only the ones you keep are removed.</p>
+      <div class="row" style="margin:8px 0">
+        <button class="btn ghost" id="loadSampleDoc">Load sample document</button>
+        <button class="btn" id="scanBtn">Scan for identifiers</button>
+      </div>
+      <textarea id="redInput" placeholder="Paste text here, or load a sample document…"></textarea>
+    </div>
+
+    <div class="card hidden" id="findingsCard">
+      <h2>Review</h2>
+      <div class="summary" id="redKpis"></div>
+      <p class="note"><b>Recall-first:</b> every detected identifier is pre-selected — better to
+        over-redact and untick than to miss one. <b>high</b> = checksum-validated;
+        <b>review</b> = heuristic (esp. names/orgs, which over-flag on purpose) — scan these and
+        untick false positives before applying.</p>
+      <div id="findings"></div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="applyBtn">Apply redaction</button>
+        <button class="btn ghost" id="selAll">Select all</button>
+        <button class="btn ghost" id="selNone">Deselect all</button>
+        <button class="btn ghost" id="copyBtn">Copy redacted text</button>
+      </div>
+    </div>
+
+    <div class="card hidden" id="outputCard">
+      <h2>Redacted output</h2>
+      <p class="note">The identifier text is <b>removed</b> from the output (not just visually masked).</p>
+      <div class="out" id="redOutput"></div>
+    </div>
+
+    <div class="honest">
+      <b>Honest framing.</b> Detection is reasonable-efforts and deterministic — it is <b>never
+      "safe to send."</b> Structured identifiers (email, card, IBAN, NRIC) are caught reliably;
+      <b>names &amp; organisations are heuristic</b> — caught only when Title-Cased/cued, and
+      reliable free-form coverage is the later statistical/NER tier, NOT this deterministic pass.
+      The lawyer owns the residual-identification judgment. This browser demo handles plain-text
+      formats (.txt .md .eml .csv .json); the full product also extracts PDF/DOCX/XLSX/PPTX and
+      OCRs scanned PDFs, all locally.
+    </div>
+  </section>
+</main>
+
+<footer>
+  Lawbat demo — runs entirely in your browser, offline. Open this file with your network
+  disconnected and everything still works: that is the product's core promise.
+</footer>
+
+<script>
+"use strict";
+
+/* ---------- tiny helpers ---------- */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const TEXT_EXT = new Set(['txt','md','csv','eml','json','log','htm','html','xml','tsv','rtf']);
+const fmtBytes = n => n<1024 ? n+' B' : n<1048576 ? (n/1024).toFixed(1)+' KB' : (n/1048576).toFixed(1)+' MB';
+
+/* ---------- tabs ---------- */
+$$('nav button').forEach(b => b.onclick = () => {
+  $$('nav button').forEach(x=>x.classList.remove('active'));
+  $$('.panel').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); $('#'+b.dataset.tab).classList.add('active');
+});
+
+/* ===================================================================
+   1. DATA ROOM: load + index + search   (mirrors index.py + FTS5/bm25)
+   =================================================================== */
+let DOCS = [];          // {name, ext, size, text|null, words, status}
+let INDEX = null;       // term -> Map(docId -> tf)
+let DF = null;          // term -> document frequency
+
+const tokenize = t => (t.toLowerCase().match(/[a-z0-9]+/g) || []);
+
+function buildIndex(){
+  INDEX = new Map(); DF = new Map();
+  DOCS.forEach((d,i) => {
+    if(d.text==null) return;
+    const tf = new Map();
+    for(const tok of tokenize(d.text)) tf.set(tok,(tf.get(tok)||0)+1);
+    for(const [tok,c] of tf){
+      if(!INDEX.has(tok)) INDEX.set(tok,new Map());
+      INDEX.get(tok).set(i,c);
+      DF.set(tok,(DF.get(tok)||0)+1);
+    }
+  });
+}
+
+function search(query){
+  const terms = [...new Set(tokenize(query))];
+  if(!terms.length || !INDEX) return [];
+  const N = DOCS.filter(d=>d.text!=null).length || 1;
+  const scores = new Map();
+  for(const term of terms){
+    const post = INDEX.get(term); if(!post) continue;
+    const idf = Math.log(1 + N/(DF.get(term)||1));
+    for(const [docId,tf] of post){
+      const s = (1+Math.log(tf)) * idf;   // tf-idf, a stand-in for bm25
+      scores.set(docId,(scores.get(docId)||0)+s);
+    }
+  }
+  return [...scores.entries()]
+    .sort((a,b)=>b[1]-a[1])
+    .map(([docId,score])=>({doc:DOCS[docId], score, snippet:makeSnippet(DOCS[docId].text, terms)}));
+}
+
+function makeSnippet(text, terms){
+  const low = text.toLowerCase();
+  let pos = -1;
+  for(const t of terms){ const p = low.indexOf(t); if(p>=0 && (pos<0||p<pos)) pos = p; }
+  if(pos<0) pos = 0;
+  const start = Math.max(0, pos-60), end = Math.min(text.length, pos+140);
+  let snip = (start>0?'… ':'') + text.slice(start,end).replace(/\s+/g,' ').trim() + (end<text.length?' …':'');
+  snip = esc(snip);
+  for(const t of terms){
+    snip = snip.replace(new RegExp('('+t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'), '<mark>$1</mark>');
+  }
+  return snip;
+}
+
+function refreshIndexStat(){
+  const indexed = DOCS.filter(d=>d.text!=null).length;
+  const skipped = DOCS.length - indexed;
+  $('#indexStat').textContent = DOCS.length
+    ? `${indexed} document${indexed!==1?'s':''} indexed`
+      + (skipped?` · ${skipped} need extraction (PDF/DOCX/etc. — full product only)`:'')
+    : 'No documents indexed yet.';
+  renderSchedule();
+}
+
+async function addFiles(fileList){
+  const jobs = [...fileList].map(f => new Promise(res => {
+    const ext = (f.name.split('.').pop()||'').toLowerCase();
+    const base = {name:f.webkitRelativePath || f.name, ext, size:f.size};
+    if(!TEXT_EXT.has(ext) || f.size > 6_000_000){
+      DOCS.push({...base, text:null, words:0, status:'needs-extraction'}); return res();
+    }
+    const r = new FileReader();
+    r.onload = () => { const text = String(r.result||'');
+      DOCS.push({...base, text, words:tokenize(text).length, status:'indexed'}); res(); };
+    r.onerror = () => { DOCS.push({...base, text:null, words:0, status:'error'}); res(); };
+    r.readAsText(f);
+  }));
+  await Promise.all(jobs);
+  buildIndex(); refreshIndexStat();
+}
+
+$('#pickFolder').onclick = () => $('#folderInput').click();
+$('#folderInput').onchange = e => addFiles(e.target.files);
+
+function runSearch(){
+  const res = search($('#q').value);
+  const box = $('#results');
+  if(!DOCS.length){ box.innerHTML = '<p class="empty">Load a folder or the sample data room first.</p>'; return; }
+  if(!$('#q').value.trim()){ box.innerHTML=''; return; }
+  if(!res.length){ box.innerHTML = '<p class="empty">No matches.</p>'; return; }
+  box.innerHTML = res.map(r => `
+    <div class="result">
+      <div class="fn">${esc(r.doc.name)}</div>
+      <div class="meta">${r.doc.ext.toUpperCase()} · ${r.doc.words} words · score ${r.score.toFixed(2)}</div>
+      <div class="snip">${r.snippet}</div>
+    </div>`).join('');
+}
+$('#goSearch').onclick = runSearch;
+$('#q').addEventListener('keydown', e => { if(e.key==='Enter') runSearch(); });
+
+/* ===================================================================
+   2. SCHEDULE: read-only manifest + CSV   (mirrors automations.py)
+   =================================================================== */
+function renderSchedule(){
+  const kpi = $('#schedKpis');
+  const indexed = DOCS.filter(d=>d.text!=null).length;
+  const need = DOCS.filter(d=>d.status==='needs-extraction').length;
+  const words = DOCS.reduce((a,d)=>a+d.words,0);
+  kpi.innerHTML = DOCS.length ? `
+    <span class="kpi"><b>${DOCS.length}</b> files</span>
+    <span class="kpi"><b>${indexed}</b> indexed</span>
+    <span class="kpi"><b>${need}</b> need extraction</span>
+    <span class="kpi"><b>${words.toLocaleString()}</b> words</span>` : '';
+  const t = $('#schedTable');
+  if(!DOCS.length){ t.innerHTML = '<p class="empty">No documents loaded.</p>'; return; }
+  t.innerHTML = `<table><thead><tr><th>#</th><th>Document</th><th>Type</th><th>Size</th><th>Words</th><th>Status</th></tr></thead><tbody>${
+    DOCS.map((d,i)=>`<tr>
+      <td>${i+1}</td><td>${esc(d.name)}</td><td>${d.ext.toUpperCase()||'—'}</td>
+      <td>${fmtBytes(d.size)}</td><td>${d.words||'—'}</td>
+      <td><span class="pill ${d.status==='indexed'?'ok':'skip'}">${d.status}</span></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+function csvCell(s){ s=String(s); return /[",\r\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }
+$('#exportCsv').onclick = () => {
+  if(!DOCS.length) return alert('Load a data room first.');
+  const rows = [['#','document','type','size_bytes','words','status']]
+    .concat(DOCS.map((d,i)=>[i+1,d.name,d.ext,d.size,d.words,d.status]));
+  const csv = rows.map(r=>r.map(csvCell).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  const a=document.createElement('a'); a.href=url; a.download='schedule-of-documents.csv'; a.click();
+  URL.revokeObjectURL(url);
+};
+
+/* ===================================================================
+   3. REDACTION engine   (ports core/crates/redaction recognizers)
+   =================================================================== */
+function luhn(d){ let sum=0,alt=false; for(let i=d.length-1;i>=0;i--){let x=+d[i]; if(alt){x*=2; if(x>9)x-=9;} sum+=x; alt=!alt;} return d.length>=13 && sum%10===0; }
+function ibanValid(s){ s=s.replace(/\s/g,'').toUpperCase(); if(!/^[A-Z]{2}\d{2}[A-Z0-9]+$/.test(s)||s.length<15||s.length>34) return false;
+  const re=(s.slice(4)+s.slice(0,4)).replace(/[A-Z]/g,c=>c.charCodeAt(0)-55); let r=0; for(const ch of re) r=(r*10+ +ch)%97; return r===1; }
+function nricValid(s){ const m=/^([STFG])(\d{7})([A-Z])$/.exec(s.toUpperCase()); if(!m) return false;
+  const w=[2,7,6,5,4,3,2]; let sum=0; for(let i=0;i<7;i++) sum+=(+m[2][i])*w[i]; if(m[1]==='T'||m[1]==='G') sum+=4;
+  const tbl=(m[1]==='S'||m[1]==='T')?['J','Z','I','H','G','F','E','D','C','B','A']:['X','W','U','T','R','Q','P','N','M','L','K'];
+  return tbl[sum%11]===m[3]; }
+function ipv4ok(s){ return s.split('.').every(o=>o.length<=3 && +o<=255); }
+
+// classify(value) -> 'high' | 'medium' | null(skip). priority: lower wins overlaps.
+const RECS = [
+  {type:'Credit card', pri:1, re:/\b\d(?:[ -]?\d){12,18}\b/g, classify:v=>luhn(v.replace(/\D/g,''))?'high':null},
+  {type:'IBAN',        pri:2, re:/\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]){11,30}\b/g, classify:v=>ibanValid(v)?'high':null},
+  {type:'Email',       pri:3, re:/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, classify:()=> 'high'},
+  {type:'NRIC/FIN',    pri:4, re:/\b[STFG]\d{7}[A-Z]\b/g, classify:v=>nricValid(v)?'high':'medium'},
+  {type:'IP address',  pri:5, re:/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, classify:v=>ipv4ok(v)?'medium':null},
+  {type:'URL',         pri:6, re:/\bhttps?:\/\/[^\s)<>"']+/g, classify:()=> 'medium'},
+  {type:'Phone',       pri:7, re:/(?:\+\d{1,3}[\s-]?)?\(?\d{2,4}\)?[\s-]\d{3,4}(?:[\s-]?\d{3,4}){0,2}/g,
+                              classify:v=>{const n=(v.match(/\d/g)||[]).length; return n>=8&&n<=15?'medium':null;}},
+  // Name / organisation HEURISTIC (recall-first): a run of 2-4 Title-Case words catches
+  // person names (Jane Smith, Ms Tan), parties/firms (Acme Holdings Pte Ltd, Beta
+  // Logistics, Example Law) and matter codenames (Project Condor). Deterministic name/org
+  // detection is INHERENTLY imprecise — this over-flags on purpose and the reviewer
+  // unticks false positives; reliable free-form name coverage is the statistical/NER tier.
+  {type:'Name / org',  pri:8, re:/\b[A-Z][a-z]+(?:[ ][A-Z][a-z]+){1,3}\b/g, classify:()=> 'medium'},
+];
+
+function scan(text){
+  const cand=[];
+  for(const rec of RECS){
+    rec.re.lastIndex=0; let m;
+    while((m=rec.re.exec(text))!==null){
+      const value=m[0], tier=rec.classify(value);
+      if(tier) cand.push({start:m.index, end:m.index+value.length, type:rec.type, tier, value, pri:rec.pri});
+      if(m.index===rec.re.lastIndex) rec.re.lastIndex++; // guard zero-width
+    }
+  }
+  // resolve overlaps: prefer higher priority (lower pri number), then longer
+  cand.sort((a,b)=> a.pri-b.pri || (b.end-b.start)-(a.end-a.start) || a.start-b.start);
+  const taken=[];
+  for(const c of cand){ if(!taken.some(t=>c.start<t.end && t.start<c.end)) taken.push(c); }
+  return taken.sort((a,b)=>a.start-b.start).map((c,i)=>({...c,id:i}));
+}
+
+let CURRENT = {text:'', hits:[]};
+
+$('#scanBtn').onclick = () => {
+  const text = $('#redInput').value;
+  if(!text.trim()) return alert('Paste text or load a sample document first.');
+  const hits = scan(text);
+  CURRENT = {text, hits};
+  const high = hits.filter(h=>h.tier==='high').length, med = hits.length-high;
+  $('#redKpis').innerHTML = `
+    <span class="kpi"><b>${hits.length}</b> identifiers</span>
+    <span class="kpi"><b>${high}</b> high-confidence</span>
+    <span class="kpi"><b>${med}</b> to review</span>`;
+  $('#findings').innerHTML = hits.length ? hits.map(h=>`
+    <label class="finding">
+      <input type="checkbox" data-id="${h.id}" checked>
+      <span class="ftype">${esc(h.type)}</span>
+      <code>${esc(h.value)}</code>
+      <span class="pill ${h.tier==='high'?'high':'med'}" style="margin-left:auto">${h.tier==='high'?'high':'review'}</span>
+    </label>`).join('') : '<p class="empty">No identifiers detected.</p>';
+  $('#findingsCard').classList.remove('hidden');
+  $('#outputCard').classList.add('hidden');
+};
+
+function redactedText(){
+  const keep = new Set($$('#findings input:checked').map(c=>+c.dataset.id));
+  const hits = CURRENT.hits.filter(h=>keep.has(h.id)).sort((a,b)=>a.start-b.start);
+  let out='', cur=0;
+  for(const h of hits){ out += CURRENT.text.slice(cur,h.start) + '███████'; cur=h.end; }
+  out += CURRENT.text.slice(cur);
+  return out;
+}
+$('#applyBtn').onclick = () => {
+  const out = redactedText();
+  // render with redaction blocks styled, content removed
+  $('#redOutput').innerHTML = esc(out).replace(/█+/g,'<span class="blk">$&</span>');
+  $('#outputCard').classList.remove('hidden');
+  $('#outputCard').scrollIntoView({behavior:'smooth',block:'nearest'});
+};
+$('#copyBtn').onclick = async () => {
+  try{ await navigator.clipboard.writeText(redactedText()); $('#copyBtn').textContent='Copied ✓';
+    setTimeout(()=>$('#copyBtn').textContent='Copy redacted text',1500); }
+  catch{ alert('Copy unavailable in this browser context — select the output manually.'); }
+};
+$('#selAll').onclick = () => $$('#findings input').forEach(c => c.checked = true);
+$('#selNone').onclick = () => $$('#findings input').forEach(c => c.checked = false);
+
+/* ===================================================================
+   Sample synthetic data room (no real matter data)
+   =================================================================== */
+const SAMPLE = [
+  {name:'01_engagement_letter.txt', ext:'txt', text:
+`ENGAGEMENT LETTER — Acme Holdings Pte Ltd v Beta Logistics
+
+Dear Ms Tan,
+
+Thank you for instructing us in the Project Condor dispute. Our point of contact is
+Jane Smith (jane.smith@example-law.com, +65 9123 4567). For identity verification we
+hold your NRIC S1234567D on file.
+
+The agreed retainer of S$10,000 was charged to card 4111 1111 1111 1111. Future
+invoices will be settled to our client account IBAN GB82 WEST 1234 5698 7654 32.
+
+We will review the exported data room and advise on discovery obligations.
+
+Yours faithfully,
+Example Law LLP`},
+  {name:'02_email_discovery.eml', ext:'eml', text:
+`From: opposing.counsel@betalogistics.example
+To: jane.smith@example-law.com
+Cc: paralegal@example-law.com
+Subject: Project Condor — discovery schedule
+
+Jane,
+
+Per our call, here is the proposed discovery schedule for the Condor matter. We expect
+production of the share purchase agreement and the board minutes by month end. Our
+client portal is at https://portal.betalogistics.example/condor (login required).
+
+If urgent, my direct line is +44 20 7946 0958.
+
+Regards,
+Opposing Counsel`},
+  {name:'03_witness_statement.txt', ext:'txt', text:
+`WITNESS STATEMENT OF R. KUMAR
+
+1. I am a director of Acme Holdings. I make this statement re the Condor transaction.
+2. On 14 November 2023 I attended a meeting concerning the share purchase agreement.
+3. Payment instructions referenced account IBAN DE89 3704 0044 0532 0130 00 and were
+   sent from server 192.168.10.45 within our network.
+4. Contact for follow-up: r.kumar@acme.example.
+
+I believe the facts stated in this statement are true.`},
+  {name:'04_invoice_2026_017.csv', ext:'csv', text:
+`invoice,date,matter,amount_sgd,paid_card,client_email
+2026-017,2026-03-02,Condor discovery review,8400.00,5500 0000 0000 0004,finance@acme.example
+2026-018,2026-03-19,Condor witness prep,3200.00,,finance@acme.example`},
+  {name:'05_memo_privilege.md', ext:'md', text:
+`# Privileged & Confidential — Internal Memo
+
+Re: Project Condor strategy. Do NOT disclose. This memo records our assessment of the
+discovery scope and the documents likely to be privileged. The opposing party's data
+room export contains roughly 1,200 files; we should prioritise the board minutes and
+the share purchase agreement. Lead: Jane Smith.`},
+  {name:'06_scanned_exhibit_A.pdf', ext:'pdf', text:null}, // demonstrates "needs extraction"
+];
+function loadSample(){
+  DOCS = SAMPLE.map(d => ({...d, size:(d.text||'').length || 482113,
+    words: d.text?tokenize(d.text).length:0,
+    status: d.text==null?'needs-extraction':'indexed'}));
+  buildIndex(); refreshIndexStat();
+  $('#q').value='Condor discovery'; runSearch();
+}
+$('#loadSample').onclick = loadSample;
+$('#loadSampleDoc').onclick = () => { $('#redInput').value = SAMPLE[0].text; };
+
+refreshIndexStat();
+</script>
+</body>
+</html>

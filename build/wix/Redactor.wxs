@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Redactor — WiX v4/v5 MSI authoring for the STANDALONE Redactor product variant.
+
+  This is Product.wxs adapted for the sector-agnostic "Redactor" app: the redaction
+  reviewer as the WHOLE application (desktop\redactor.py -> app.web.create_redactor_app).
+  It SHARES the same staged payload tree Product.wxs builds from (same embedded CPython,
+  same app\/desktop\ source, same site-packages, same vendor\), so the packaging workflow
+  builds BOTH MSIs from ONE assemble.ps1 stage. What differs is IDENTITY + entry point:
+    * ProductName "Redactor" (not "Lawbat")
+    * a SEPARATE UpgradeCode (below) so the two products install + upgrade independently
+    * install dir  %LocalAppData%\Programs\Redactor  (not \DataRoomReview)
+    * Start-menu folder + shortcuts named "Redactor", targeting desktop\redactor.py
+    * a distinct HKCU keypath (Software\lawdataman\Redactor) so the per-user shortcut
+      component never collides with a Lawbat install on the same machine
+    * a distinct icon (assets\redactor.ico)
+
+  Deliberately does NOT ship the platform-"Core" substrate feature (host.exe + hello.wasm):
+  the Redactor uses only the redaction path, which is served by redact-cli.exe under
+  vendor\core\ (harvested in PayloadVendorBase). The wasmtime substrate spike is unused
+  here, so it is dropped to keep the Redactor slim. The OPTIONAL OCR (Tesseract) feature is
+  kept — the Redactor does scanned-PDF OCR image-redaction.
+
+  NOTE (v1 acceptable-bloat): PayloadApp harvests the WHOLE app\ tree, so the Redactor still
+  ships the Home / data-room / reid-risk .py + UI files even though it never serves those
+  routes (create_redactor_app exposes only /  + /api/redaction/*). Harmless dead files; a
+  per-feature split can trim them later. The reid-risk reference tables (data\reference\) are
+  NOT harvested by Product.wxs either, so nothing extra ships on that account. viewgen.exe
+  (Home only) ships under vendor\core\** alongside redact-cli.exe — also harmless.
+
+  Build (PowerShell, after assemble.ps1, same $stage as the Lawbat MSI):
+    $stage = "..\stage\DataRoomReview"   # == $(StageDir); shared staged tree
+    wix build Redactor.wxs -arch x64 `
+      -ext WixToolset.UI.wixext `
+      -d Version=0.1.1 -d StageDir=$stage `
+      -o ..\out\Redactor.msi
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <!--
+    UpgradeCode is the STABLE identity across all Redactor versions — never change it.
+    >>> IT MUST NEVER EQUAL LAWBAT'S UpgradeCode (Product.wxs:
+    8E5C2A41-9B3D-4F77-A1E2-6C0D9F4B7A12). <<<  Two products sharing an UpgradeCode would
+    make installing one UNINSTALL the other. This GUID was freshly generated (python
+    uuid4) for the Redactor and is used by NOTHING else in this repo.
+  -->
+  <?define UpgradeCode = "8AF4AB29-613B-42A2-8D94-47AD2FEC79CB" ?>
+
+  <!-- Version is injected at build time: wix build -d Version=0.1.1 (CI reads app/__init__.py) -->
+  <?ifndef Version ?><?define Version = "0.1.1" ?><?endif?>
+
+  <!--
+    StageDir = the assembled payload root (build\stage\DataRoomReview) produced by
+    assemble.ps1 — the SAME stage the Lawbat MSI harvests. Passed at build time:
+    wix build -d StageDir=..\stage\DataRoomReview
+  -->
+  <?ifndef StageDir ?><?define StageDir = "..\stage\DataRoomReview" ?><?endif?>
+
+  <Package
+      Name="Redactor"
+      Manufacturer="lawdataman"
+      Version="$(Version)"
+      UpgradeCode="$(UpgradeCode)"
+      Compressed="yes"
+      Scope="perUser">
+
+    <!-- Clean upgrades: a newer version removes the older one first. -->
+    <MajorUpgrade
+        AllowSameVersionUpgrades="yes"
+        DowngradeErrorMessage="A newer version of Redactor is already installed." />
+
+    <!-- Single embedded CAB; keeps the MSI a single self-contained file. -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!--
+      Install wizard: WixUI_InstallDir = Welcome, License, Choose-folder (Browse),
+      Confirm, Progress, Finish. InstallDirectory points at the SAME directory id the
+      file payload installs into (INSTALLFOLDER). UI-ONLY: a silent install (msiexec /qn)
+      suppresses the dialogs and uses the default per-user INSTALLFOLDER. Scope perUser.
+    -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(sys.SOURCEFILEDIR)\assets\license.rtf" />
+
+    <!-- Distinct icon (redaction-bars-on-document motif) so the Redactor reads
+         differently from Lawbat in Start-menu / Add-Remove-Programs. -->
+    <Icon Id="AppIcon" SourceFile="$(sys.SOURCEFILEDIR)\assets\redactor.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <!-- ARPNOMODIFY is intentionally NOT set: WixUI_InstallDir already owns it. -->
+
+
+    <!--
+      Per-user install root: %LocalAppData%\Programs\Redactor
+      (the modern per-user "Program Files" equivalent; no admin needed). DISTINCT from
+      Lawbat's \DataRoomReview so both products can coexist.
+    -->
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="Redactor" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Per-user Start-menu folder for the shortcut. -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppProgramMenuDir" Name="Redactor" />
+    </StandardDirectory>
+
+    <!-- Desktop shortcut target dir. -->
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!--
+      Features
+      ========
+      Base = app + python + site-packages + qpdf + WebView2 + redact-cli + shortcuts.
+      OCR  = Tesseract + tessdata, optional (scanned-PDF image redaction). Same split as
+             the Lawbat MSI so the base stays lean.
+      (No platform-"Core" substrate feature — unused by the redaction-only app.)
+    -->
+    <Feature Id="Base"
+             Title="Redactor (core)"
+             Description="The redaction reviewer, embedded Python, redaction engine, qpdf, WebView2."
+             Level="1"
+             AllowAbsent="no"
+             Display="expand">
+      <ComponentGroupRef Id="PayloadPython" />
+      <ComponentGroupRef Id="PayloadApp" />
+      <ComponentGroupRef Id="PayloadSite" />
+      <ComponentGroupRef Id="PayloadVendorBase" />
+      <ComponentGroupRef Id="LicenseFiles" />
+      <ComponentRef Id="AppShortcuts" />
+
+      <Feature Id="Ocr"
+               Title="OCR support (Tesseract)"
+               Description="Optional: redact scanned/image PDFs by burning boxes over recognised text. Adds ~30-50 MB."
+               Level="1000"
+               AllowAbsent="yes">
+        <!--
+          Level 1000 => NOT installed by default. The user opts in via the feature tree,
+          or set ADDLOCAL=Ocr on the command line. Keeps the base AV-quiet and small.
+        -->
+        <ComponentGroupRef Id="PayloadVendorOcr" />
+      </Feature>
+    </Feature>
+
+    <!--
+      Shortcuts component: both shortcuts target the bundled pythonw.exe with
+      desktop\redactor.py as the argument (the REDACTOR entry point), WorkingDirectory =
+      INSTALLFOLDER so `import app` / `import desktop` resolve. pythonw.exe == no console.
+    -->
+    <Component Id="AppShortcuts" Directory="AppProgramMenuDir" Guid="*">
+      <Shortcut Id="StartMenuShortcut"
+                Name="Redactor"
+                Description="Local, offline redaction reviewer — find and remove sensitive text (no AI, nothing leaves this machine)."
+                Target="[INSTALLFOLDER]python\pythonw.exe"
+                Arguments="&quot;[INSTALLFOLDER]desktop\redactor.py&quot;"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon" />
+      <Shortcut Id="DesktopShortcut"
+                Directory="DesktopFolder"
+                Name="Redactor"
+                Description="Local, offline redaction reviewer — find and remove sensitive text (no AI, nothing leaves this machine)."
+                Target="[INSTALLFOLDER]python\pythonw.exe"
+                Arguments="&quot;[INSTALLFOLDER]desktop\redactor.py&quot;"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon" />
+      <RemoveFolder Id="CleanProgramMenuDir" Directory="AppProgramMenuDir" On="uninstall" />
+      <!-- Per-user component needs a HKCU keypath. DISTINCT key from Lawbat's
+           (Software\lawdataman\DataRoomReview) so the two per-user installs never
+           collide / repair each other. -->
+      <RegistryValue Root="HKCU"
+                     Key="Software\lawdataman\Redactor"
+                     Name="installed"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <!--
+      License files (AGPL/GPL obligation: ship LICENSE + third-party notices).
+      Authored explicitly (not harvested) so the obligation can't silently drop.
+    -->
+    <ComponentGroup Id="LicenseFiles" Directory="INSTALLFOLDER">
+      <Component Id="LicenseMain" Guid="*">
+        <File Id="LICENSE" Source="$(StageDir)\LICENSE" />
+      </Component>
+      <Component Id="LicenseThirdParty" Guid="*">
+        <File Id="THIRD_PARTY_LICENSES.md" Source="$(StageDir)\THIRD_PARTY_LICENSES.md" />
+      </Component>
+    </ComponentGroup>
+
+    <!--
+      WebView2 prerequisite. pywebview needs the Edge WebView2 runtime (present on
+      current Win10/11); we ship the Evergreen bootstrapper (staged under vendor\webview2\)
+      as a BASE file, harvested in PayloadVendorBase below.
+    -->
+
+  </Package>
+
+  <!--
+    ===================================================================
+    Harvested payload (WiX v4/v5 native <Files> — the modern heat), from the SAME
+    $(StageDir) the Lawbat MSI uses. The install-side layout mirrors Product.wxs:
+
+      INSTALLFOLDER\python\...         (embedded CPython)
+      INSTALLFOLDER\app\...            (our AGPL source — whole tree; see the v1 note above)
+      INSTALLFOLDER\desktop\...        (entry points, incl. redactor.py)
+      INSTALLFOLDER\site-packages\...  (pip target-dir deps)
+      INSTALLFOLDER\vendor\qpdf\...    + vendor\webview2\...  + vendor\core\... (BASE)
+      INSTALLFOLDER\vendor\tesseract\... (OPTIONAL OCR feature)
+    ===================================================================
+  -->
+  <Fragment>
+    <ComponentGroup Id="PayloadPython" Directory="INSTALLFOLDER">
+      <Files Include="$(StageDir)\python\**" Subdirectory="python" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="PayloadApp" Directory="INSTALLFOLDER">
+      <Files Include="$(StageDir)\app\**" Subdirectory="app" />
+      <Files Include="$(StageDir)\desktop\**" Subdirectory="desktop" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="PayloadSite" Directory="INSTALLFOLDER">
+      <Files Include="$(StageDir)\site-packages\**" Subdirectory="site-packages" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="PayloadVendorBase" Directory="INSTALLFOLDER">
+      <!-- qpdf (PDF repair) + the WebView2 bootstrapper — but NOT tesseract. -->
+      <Files Include="$(StageDir)\vendor\qpdf\**" Subdirectory="vendor\qpdf" />
+      <Files Include="$(StageDir)\vendor\webview2\**" Subdirectory="vendor\webview2" />
+      <!-- vendor\core\ = the host<->core CLI bridges: redact-cli.exe (the Redaction
+           scan/apply engine the app calls; app/redactionmodel.py) + viewgen.exe. The `**`
+           harvests the whole dir; redact-cli is REQUIRED for the redaction path, so this
+           group is load-bearing for the Redactor. viewgen.exe ships too (harmless — the
+           Redactor never invokes it). -->
+      <Files Include="$(StageDir)\vendor\core\**" Subdirectory="vendor\core" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="PayloadVendorOcr" Directory="INSTALLFOLDER">
+      <!-- Tesseract + tessdata — only the OCR feature installs this. -->
+      <Files Include="$(StageDir)\vendor\tesseract\**" Subdirectory="vendor\tesseract" />
+    </ComponentGroup>
+  </Fragment>
+</Wix>

@@ -1,0 +1,83 @@
+name: Redactor verification
+
+on:
+  push:
+    branches: ["codex/redactor-release-hardening-20260917"]
+    paths:
+      - ".github/workflows/redactor-verification.yml"
+      - "app/**"
+      - "tests/**"
+      - "core/**"
+  pull_request:
+    paths:
+      - ".github/workflows/redactor-verification.yml"
+      - "app/**"
+      - "tests/**"
+      - "core/**"
+
+permissions:
+  contents: read
+
+# Deliberately independent of the existing lint-dependent full CI. A lint
+# failure must not prevent these new security regressions from executing.
+# This does not disable, replace or mark the existing full CI as passed.
+jobs:
+  verification:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONPATH: .
+      LAWDATAMAN_DISABLE_OS_OPEN: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@1.96
+      - name: Install headless test dependencies
+        run: pip install fastapi "uvicorn[standard]" pymupdf python-docx openpyxl python-pptx httpx pillow
+      - name: Install actual OCR engine for Linux document acceptance
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y tesseract-ocr
+      - name: Rust verification regressions
+        working-directory: core
+        run: |
+          cargo test --locked -p redaction -p redact-cli verify
+          cargo test --locked -p redact-cli capabilities_reports_compiled_packs_and_limits
+      - name: Build actual engine
+        working-directory: core
+        run: cargo build --locked --release -p redact-cli
+      - name: Bind tests to the compiled engine
+        run: |
+          python - <<'PYENGINE'
+          import os
+          from pathlib import Path
+          binary = Path("core/target/release/redact-cli" + (".exe" if os.name == "nt" else "")).resolve()
+          assert binary.is_file(), "actual compiled engine missing"
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as out:
+              out.write("LAWDATAMAN_REDACT_CLI=" + str(binary) + "\n")
+              out.write("REDACTOR_REQUIRE_ENGINE=1\n")
+          PYENGINE
+      - name: Focused Python and route regressions
+        run: python -m unittest discover -s tests -p 'test_redactor_*hardening.py' -v
+      - name: PDF removal guards
+        run: python -m unittest discover -s tests -p test_redactor_pdf_release_guard.py -v
+      - name: Actual engine and existing public-corpus recovery checks
+        run: python -m unittest discover -s tests -p test_redactor_verification_engine.py -v
+      - name: Preferences regressions
+        run: node --test tests/redaction_preferences_hardening.test.cjs
+      - name: Existing smoke suite and assembled UI parse checks
+        run: python tests/test_smoke.py
+      - name: Real-server end-to-end checks
+        run: python tests/test_e2e.py
+      - name: Desktop shell platform guards
+        run: python tests/test_desktop.py

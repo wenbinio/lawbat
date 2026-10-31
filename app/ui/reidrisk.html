@@ -1,0 +1,226 @@
+<!doctype html>
+<!--
+  Lawbat — Re-identification RISK estimator. A NEW, SEPARATE tool reached from the Home
+  launcher. It estimates a population-uniqueness k-VALUE (an OPTIMISTIC lower bound on
+  uniqueness — see app/reidrisk.py's honesty spine), and NEVER touches the redaction
+  carrier (app/privilege.py / app/redactionmodel.py / app/ui/redaction.*).
+
+  Self-contained + air-gapped: base.css (the SHARED design system), reidrisk.css and
+  reidrisk.js are INLINED into this page by the server at startup (app/web.py
+  _build_reidrisk_page() reads app/ui/base.css + app/ui/reidrisk.*, escapes the token,
+  serves one document). NO external resources — no web fonts, no CDN, no <script src>, no
+  external <a href>. The strict air-gap guard rejects any http(s):// reference anywhere.
+
+  This is the TRUSTED HOST shell (not a sandboxed module), so host JS is allowed. It POSTs
+  text to /api/reidrisk/{score,batch} (pure-Python deterministic estimator) and renders a
+  k-ESTIMATE, the prosecutor risk (worst case, LED with), the contributing quasi-identifiers,
+  the medical tiers, and the coverage disclosure. Every cleartext string (entity name, QI
+  values, notes, caveats) is escaped via esc() before insertion. The text travels only the
+  local pipe to the estimator — it never leaves the machine, and is not persisted or logged.
+
+  HONESTY (load-bearing — a reviewer rejects violations): the number is ALWAYS a "k-ESTIMATE",
+  never a guarantee/percentage/"safe to send". The word "safe" appears ONLY negated. We LEAD
+  with the prosecutor (worst-case) metric. There is no "clear"/"safe"/"OK to send" state.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="drr-token" content="__DRR_TOKEN__">
+<title>Lawbat — Re-identification risk estimator</title>
+<!-- favicon: a black redaction bar, inline data: URI (nothing fetched — air-gap holds;
+     base64 so the strict no-http(s) page guard never sees a scheme literal from the
+     svg's xmlns namespace IDENTIFIER, which is not a network reference) -->
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHJlY3QgeD0iMSIgeT0iNS41IiB3aWR0aD0iMTQiIGhlaWdodD0iNSIgcng9IjEuNSIvPjwvc3ZnPg==">
+<style>
+/* __BASE_CSS__ */
+/* __REIDRISK_CSS__ */
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<div id="live" class="vh" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">L</div>
+      <div class="titles">
+        <h1>Re-identification risk estimator</h1>
+        <div class="sub">Lawbat</div>
+      </div>
+    </div>
+    <div class="actions">
+      <a class="back" href="/">&larr; Home</a>
+    </div>
+  </div>
+
+  <main id="main">
+
+    <!-- ===== PERMANENT, NON-DISMISSIBLE HONESTY BANNERS (plain HTML, always visible) ===== -->
+    <div class="wrap">
+
+      <div class="banner honest" id="bannerEstimate">
+        <span class="ic" aria-hidden="true">&#9888;</span>
+        <div class="body">
+          <b>k is an ESTIMATE under an independence assumption &mdash; an OPTIMISTIC lower bound on
+            uniqueness that may UNDER-STATE risk.</b>
+          <p>It assumes quasi-identifiers are independent, but real ones are correlated, so the true
+            k is usually LOWER (more re-identifiable) than shown. This is NOT a safety verdict; it is
+            never &ldquo;safe to send.&rdquo; It can only ever RAISE concern, never clear a document.</p>
+        </div>
+      </div>
+
+      <div class="banner info" id="bannerMedical">
+        <span class="ic" aria-hidden="true">&#9877;</span>
+        <div class="body">
+          <b>Medical conditions are TIERED only &mdash; common (weak signal) / rare (strong signal).</b>
+          <p>A precise k is never computed from crude national prevalence (it under-counts small-cell
+            uniqueness, the wrong direction), so a medical condition is surfaced and tiered but never
+            priced into the k product.</p>
+        </div>
+      </div>
+
+      <!-- coverage disclosure area: always present; populated from coverage_note (esc'd) -->
+      <div class="banner warn coverage-banner" id="coverageBanner">
+        <span class="ic" aria-hidden="true">&#128202;</span>
+        <div class="body">
+          <b>Coverage</b>
+          <p id="coverageNote">Run an estimate to see how many quasi-identifiers matched the bundled
+            reference data. A sparse match is NOT a low-risk finding &mdash; it is insufficient data.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================
+         SINGLE-DOCUMENT k ESTIMATE
+         ================================================================ -->
+    <section class="stage show">
+      <div class="wrap">
+        <section class="card">
+          <div class="section-h"><h2>Estimate k for one document</h2></div>
+          <p class="help mt0">Paste text below, or upload a single file. Everything happens on this
+            computer &mdash; <b>nothing leaves this machine.</b></p>
+
+          <div class="field" style="margin-top:14px">
+            <label class="lbl" for="scoreText">Paste text, or upload a file</label>
+            <textarea id="scoreText" spellcheck="false"
+              placeholder="Paste a memo, a bio, a directors list&hellip; Nothing leaves this machine."></textarea>
+          </div>
+
+          <div class="upload-row">
+            <label class="filebtn">Upload a file
+              <input id="scoreFile" type="file"
+                accept=".txt,.md,.csv,.eml,.msg,.docx,.pdf,.json,.log" hidden>
+            </label>
+            <span class="hint" id="scoreFileNote"></span>
+          </div>
+
+          <div class="divider"></div>
+          <div class="btn-row">
+            <button id="scoreBtn" class="btn primary">Estimate k &rarr;</button>
+            <span class="hint" id="scoreHint">Rule-based &mdash; the same input always gives the same estimate.</span>
+          </div>
+        </section>
+
+        <!-- estimate output (populated by renderEstimate; hidden until an estimate runs) -->
+        <section class="card est-card hidden" id="estCard" aria-labelledby="estCardH">
+          <div class="section-h">
+            <h2 id="estCardH">k-estimate</h2>
+            <span class="chip" id="concernBadge">&mdash;</span>
+          </div>
+
+          <!-- LEAD with the prosecutor (worst-case) metric, then the k-estimate. -->
+          <div class="est-lead" id="estProsecutor"></div>
+          <div class="est-k" id="estK"></div>
+          <div class="est-meta" id="estMeta"></div>
+
+          <div class="est-block">
+            <h3>Contributing quasi-identifiers</h3>
+            <div id="estContribs"></div>
+          </div>
+
+          <div class="est-block" id="estMedicalBlock">
+            <h3>Medical conditions (tiered only)</h3>
+            <div id="estMedical"></div>
+          </div>
+
+          <div class="est-block">
+            <h3>Coverage &amp; caveats</h3>
+            <div id="estCoverage"></div>
+            <div id="estCaveat" class="est-caveat"></div>
+          </div>
+        </section>
+
+        <!-- error surface (estimator unavailable / bad request); esc'd by JS -->
+        <div class="wrap" style="padding:0"><div id="scoreError"></div></div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         RELEASE (cross-document) k ESTIMATE
+         ================================================================ -->
+    <section class="stage show">
+      <div class="wrap">
+        <section class="card">
+          <div class="section-h"><h2>Estimate a release of several documents</h2></div>
+          <p class="help mt0">Add several text blocks and/or files, optionally list the names to link
+            on, then estimate the cross-document release risk. Linkage is exact-key only and
+            UNDER-links &mdash; so the release k is itself optimistic.</p>
+
+          <div id="batchDocs"></div>
+
+          <div class="btn-row" style="margin-top:12px">
+            <button id="addTextBtn" class="btn ghost sm" type="button">+ Add a text block</button>
+            <label class="filebtn sm">+ Add files
+              <input id="batchFile" type="file" multiple
+                accept=".txt,.md,.csv,.eml,.msg,.docx,.pdf,.json,.log" hidden>
+            </label>
+            <span class="hint" id="batchCountHint">No documents added yet.</span>
+          </div>
+
+          <div class="field" style="margin-top:14px">
+            <label class="lbl" for="linkTerms">Link terms (optional &mdash; comma-separated names)</label>
+            <input id="linkTerms" class="text-input" type="text"
+              placeholder="e.g. Smith, A.B (Pte) Ltd, deal codename">
+            <p class="help">Exact names/identifiers to link the same entity across documents. Absence
+              of linkage is NOT proof the documents are independent.</p>
+          </div>
+
+          <div class="divider"></div>
+          <div class="btn-row">
+            <button id="batchBtn" class="btn primary">Estimate release k &rarr;</button>
+            <span class="hint" id="batchHint">In-memory linkage only &mdash; nothing is persisted.</span>
+          </div>
+        </section>
+
+        <!-- release output (populated by renderRelease; hidden until a batch runs) -->
+        <section class="card rel-card hidden" id="relCard" aria-labelledby="relCardH">
+          <div class="section-h">
+            <h2 id="relCardH">Release k-estimate</h2>
+            <span class="chip neutral" id="relSummaryChip">&mdash;</span>
+          </div>
+          <div id="relEntities"></div>
+          <div id="relCaveat" class="est-caveat"></div>
+        </section>
+
+        <div class="wrap" style="padding:0"><div id="batchError"></div></div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="footer">
+    <span class="f"><span class="dotmark"></span> <b>Estimate only</b> &mdash; an optimistic lower bound</span>
+    <span class="f"><b>Local-only</b> &mdash; nothing leaves this machine</span>
+    <span class="f"><b>Rule-based</b> &mdash; no AI, no model calls</span>
+    <span class="f"><b>Never &ldquo;safe to send&rdquo;</b> &mdash; the residual judgment is yours</span>
+  </div>
+</div>
+
+<script>
+/* __BASE_JS__ */
+/* __REIDRISK_JS__ */
+</script>
+</body>
+</html>

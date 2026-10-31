@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[package]
+name = "timesheet"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# A first-party "firmOS" module (spec §10): automated legal time-capture / draft
+# billing, bound directly to the trusted-core `Core` traits/methods — native, no
+# WASM this increment (it dogfoods the same ABI as redaction = module #1).
+# Working: email + document-review capture (over the matter.read:metadata /
+# matter.read:activity seams), the storage:own draft store, and CSV + LEDES 1998B +
+# invoice-PDF + LEDES-XML export (behind a BillingConfig). Each export is hand-written
+# + deterministic + dep-free (validated in tests via lopdf/quick-xml dev-deps).
+#
+# DEPENDENCY POLICY (CLAUDE.md non-negotiables): deterministic, local-only,
+# no model/LLM calls, no network. Deps:
+#   - `runtime` (the trusted core) — mediated matter/audit/storage calls.
+#   - `serde` + `serde_json` — DETERMINISTIC, offline (de)serialization of the
+#     DRAFT BILLING STORE (the work product) to/from `storage:own` bytes. Already
+#     workspace deps (redaction/extract/redact-cli use them); JSON field order is
+#     the struct order, so output is stable. NO network, no model.
+# The CSV / LEDES / PDF exporters are HAND-WRITTEN (no serializer/PDF dep) — the PDF
+# is a minimal Courier text PDF emitted as bytes, deterministic + offline. Anything
+# else (a date library) still needs explicit sign-off and must stay deterministic.
+[dependencies]
+runtime = { path = "../runtime" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# SECURITY (C-1): the timesheet module's NON-test code binds the production `Core`
+# traits only and never touches the dev audit key. Its TEST suite wires the
+# deterministic `InMemoryAudit::with_clock(FixedClock::..)` doubles for reproducible
+# audit hashes, which `runtime` gates behind its `dev-audit-key` feature. Enable that
+# feature for tests ONLY via this dev-dependency, so the shipped library never pulls
+# the dev key in (mirrors redaction).
+[dev-dependencies]
+runtime = { path = "../runtime", features = ["dev-audit-key"] }
+# TEST-ONLY: parse the hand-written invoice PDF / LEDES XML back with real parsers to
+# PROVE they are well-formed (PDF xref offsets correct; XML well-formed + escaped) and
+# round-trip the expected text — the integration-verify discipline. Neither is a
+# runtime dep of this crate (both formats are emitted by hand); they never ship.
+# Versions match the workspace (extract/redact-cli).
+lopdf = { version = "0.41", default-features = false }
+quick-xml = "0.36"

@@ -1,0 +1,63 @@
+{
+  "category": "medical_condition",
+  "jurisdiction": "SG",
+  "population_N": null,
+  "entries": [
+    {
+      "key": "hypertension",
+      "prob": 0.37,
+      "count": null,
+      "year": 2022,
+      "source_label": "Hypertension"
+    },
+    {
+      "key": "hyperlipidaemia_high_cholesterol",
+      "prob": 0.319,
+      "count": null,
+      "year": 2022,
+      "source_label": "Hyperlipidaemia"
+    },
+    {
+      "key": "overweight_excluding_obese",
+      "prob": 0.286,
+      "count": null,
+      "year": 2022,
+      "source_label": "Overweight (Excluding Obese)"
+    },
+    {
+      "key": "obesity_bmi_30plus",
+      "prob": 0.116,
+      "count": null,
+      "year": 2022,
+      "source_label": "Obese"
+    },
+    {
+      "key": "binge_drinking",
+      "prob": 0.103,
+      "count": null,
+      "year": 2023,
+      "source_label": "Binge Drinking"
+    },
+    {
+      "key": "daily_smoking",
+      "prob": 0.088,
+      "count": null,
+      "year": 2023,
+      "source_label": "Daily Smoking"
+    },
+    {
+      "key": "diabetes_mellitus",
+      "prob": 0.085,
+      "count": null,
+      "year": 2022,
+      "source_label": "Diabetes Mellitus"
+    }
+  ],
+  "source_name": "MOH/HPB National Population Health Survey via data.gov.sg — chronic disease prevalence",
+  "source_url": "https://data.gov.sg/ (NPHS prevalence series)",
+  "license": "Singapore Open Data Licence v1.0",
+  "redistributable": true,
+  "redistribution_notes": "ODL v1.0 — attribution + licence link required. User-supplied from data.gov.sg.",
+  "granularity_notes": "NATIONAL CRUDE prevalence (~18-74), latest non-na year per condition. NON-PARTITION: independent prevalences (a person may have several), do NOT sum to 1. Keys ALIGNED to app/reidrisk.py _MEDICAL_TERMS target convention (lowercased; obesity_BMI_30plus stored lowercase obesity_bmi_30plus, hyperlipidaemia -> hyperlipidaemia_high_cholesterol, diabetes mellitus -> diabetes_mellitus); the original published label is kept in source_label. COMMON conditions = WEAK QIs: use to TIER common/rare, NOT for a precise medical k.",
+  "retrieved": "2026-06-26"
+}

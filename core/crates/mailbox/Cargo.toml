@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[package]
+name = "mailbox"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# The email API / LIVE-MAIL-SOURCE connector — the SOURCE end of the email
+# pipeline (mailbox -> extract -> inbox). A SKELETON this increment: the brokered
+# shape + types + capability declaration are real; the live transport is a STUB
+# (`TODO(core)` seam). It mirrors module #1 (redaction): a NATIVE first-party
+# module bound directly to the trusted-core `Core` traits/methods — no WASM.
+#
+# ARCHITECTURE (load-bearing — see lib.rs): the platform is LOCAL-ONLY /
+# air-gapped by default (CLAUDE.md non-negotiable). This connector is the ONE
+# sanctioned egress exception: the CORE holds the socket; this module NEVER holds
+# a raw socket. It hands the core a request + a NAMED, granted, consented
+# destination; with NO grant it does nothing (the app stays fully offline). So
+# this crate is the egress-HOLDING member of the pipeline (in contrast to
+# inbox/redaction, which hold `egress: []`).
+#
+# DEPENDENCY POLICY (CLAUDE.md non-negotiables): DETERMINISTIC, local-only.
+# NO networking / TLS / async / RNG / OAuth / IMAP / Graph deps — anywhere. The
+# live transport is a SEPARATE, signed-off later increment (it widens the egress
+# surface). This crate depends on exactly one thing:
+#   - `runtime` (the trusted core) — for the brokered audit/egress seams + shared
+#     types (`Capability`, `DataClass`, `StorageScope`, `CoreResult`).
+# Adding ANY other dependency here needs explicit sign-off (a network/async crate
+# would violate the local-only non-negotiable and MUST NOT enter the tree).
+#   - `sha2` (RustCrypto) — PURE COMPUTE (no network, no RNG, no I/O), already in
+#     the workspace lock via `runtime`'s HMAC-SHA-256 audit chain. Used to derive a
+#     COLLISION-FREE staging key from the FULL raw `source_id` (mirrors
+#     `app/paths.py`'s full-value-hash invariant): distinct ids must NEVER collide
+#     into one storage key, or `storage_put` would overwrite + silently drop a
+#     landed message while both are counted as landed (a missed-document risk the
+#     audit conceals). A cryptographic hash of the full value is the fix.
+[dependencies]
+runtime = { path = "../runtime" }
+sha2 = "0.10"
+
+# SECURITY (C-1): mailbox's NON-test code binds the production `Core` traits only
+# and never touches the dev audit key. Its TEST suite wires the deterministic
+# `InMemoryAudit::with_clock(FixedClock::..)` doubles, which `runtime` gates behind
+# its `dev-audit-key` feature. Enable that feature for tests ONLY via a
+# dev-dependency, so the shipped library never pulls the dev key in (mirrors redaction).
+[dev-dependencies]
+runtime = { path = "../runtime", features = ["dev-audit-key"] }

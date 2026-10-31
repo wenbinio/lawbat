@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<!--
+  lawdataman — firmOS HOME (dashboard) PROTOTYPE / mockup.
+  Synthetic data only (NO real matter data). Self-contained: inline CSS, no web
+  fonts, no CDN, no network — air-gap-safe per the non-negotiables.
+
+  This is a STATIC prototype to demo the look + behaviour. In the shipped product
+  the host renders a TYPED view-model (no module JS); the small inline JS here only
+  fakes the dismiss / expand affordances for the demo.
+
+  Faithful to the ratified decisions:
+   - Host-composed HOME: module launcher + global file view + inbox "what's next".
+   - Honest deadlines: factual PROXIMITY ("overdue by 2 days"), NOT a priority badge.
+   - "No date detected — deadline unclear" (user wording).
+   - Excerpt (first body line), never the RE:RE: subject; labelled "excerpt".
+   - Internal/external by firm domain (trusted); Court-filing + Newsletter kept;
+     Client / Opposing-counsel labels DEMOTED (not shown as confident badges).
+   - Bcc / hidden-attachment + privileged/WP flags surfaced.
+   - Dates drawn from the system region (shown as a quiet note).
+   - The hard honest-limits caveat is DISMISSIBLE ("ignore all further warnings").
+   - Local-only / deterministic / no-AI footer.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lawbat — Home (prototype)</title>
+<style>
+  :root{
+    --ink:#1a1d21; --ink2:#23272d; --line:#e3e6ea; --muted:#6b7280; --muted2:#9aa1ab;
+    --bg:#f4f6f8; --card:#ffffff; --accent:#2f6df6; --accent-dim:#e8f0fe;
+    --red:#c0392b; --red-bg:#fdecea; --amber:#b9770e; --amber-bg:#fef6e7;
+    --green:#1e7d4f; --green-bg:#e7f5ee; --purple:#6b3fa0; --purple-bg:#f0e9f8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+  .app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+
+  /* ---- left rail: module launcher ---- */
+  .nav{background:var(--ink);color:#cdd3db;display:flex;flex-direction:column;padding:14px 10px;gap:2px}
+  .brand{color:#fff;font-weight:700;font-size:15px;padding:6px 10px 14px;letter-spacing:.2px}
+  .brand small{display:block;color:var(--muted2);font-weight:400;font-size:11px;margin-top:2px}
+  .nav a{display:flex;align-items:center;gap:10px;color:#cdd3db;text-decoration:none;
+         padding:9px 10px;border-radius:7px;font-size:13.5px}
+  .nav a .ic{width:18px;text-align:center;opacity:.9}
+  .nav a:hover{background:#2c313a;color:#fff}
+  .nav a.active{background:var(--accent);color:#fff}
+  .nav .sec{color:var(--muted2);font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;padding:14px 10px 5px}
+  .nav .spacer{flex:1}
+  .nav .foot{color:var(--muted2);font-size:10.5px;padding:8px 10px;border-top:1px solid #2c313a}
+
+  /* ---- main ---- */
+  .main{padding:0 0 40px}
+  .topbar{background:var(--card);border-bottom:1px solid var(--line);padding:14px 26px;
+          display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5}
+  .topbar h1{font-size:17px;margin:0}
+  .topbar .who{color:var(--muted);font-size:12.5px}
+  .topbar .who b{color:var(--ink)}
+
+  .wrap{padding:20px 26px;max-width:1180px}
+
+  /* honest-limits caveat */
+  .caveat{background:var(--amber-bg);border:1px solid #f0d9a8;border-radius:10px;
+          padding:13px 15px;display:flex;gap:12px;align-items:flex-start;margin-bottom:18px}
+  .caveat .ic{font-size:18px;line-height:1}
+  .caveat .body{flex:1}
+  .caveat b{color:var(--amber)}
+  .caveat p{margin:3px 0 0;color:#7a5a16;font-size:12.8px}
+  .caveat button{background:transparent;border:1px solid #d9b877;color:#8a6512;
+                 border-radius:7px;padding:6px 11px;font-size:12px;cursor:pointer;white-space:nowrap}
+  .caveat button:hover{background:#f7ecd2}
+
+  /* global strip */
+  .global{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;min-width:150px}
+  .stat .n{font-size:20px;font-weight:700}
+  .stat .l{color:var(--muted);font-size:12px;margin-top:1px}
+  .stat .l a{color:var(--accent);text-decoration:none}
+
+  .cols{display:grid;grid-template-columns:1fr 268px;gap:20px;align-items:start}
+
+  /* worklist */
+  .panel-h{display:flex;align-items:baseline;justify-content:space-between;margin:2px 0 10px}
+  .panel-h h2{font-size:15px;margin:0}
+  .panel-h .sub{color:var(--muted);font-size:12px}
+  .grp{margin:18px 0 8px;color:var(--muted);font-size:11.5px;font-weight:700;
+       text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;gap:8px}
+  .grp .cnt{background:#e7ebf0;color:#54606e;border-radius:20px;padding:1px 8px;font-size:11px;font-weight:600}
+
+  .card{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--line);
+        border-radius:10px;padding:13px 15px;margin-bottom:10px}
+  .card.ov{border-left-color:var(--red)}
+  .card.td{border-left-color:var(--amber)}
+  .card.dim{opacity:.62}
+  .card .r1{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .card .sender{font-weight:600}
+  .card .matter{color:var(--muted);font-size:12px;margin-left:auto}
+  .card .excerpt{margin:7px 0 2px;color:#2a2f36}
+  .card .excerpt .lbl{color:var(--muted2);font-size:11px;font-weight:600;text-transform:uppercase;
+        letter-spacing:.4px;margin-right:6px}
+  .card .r3{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+
+  .chip{font-size:11.5px;padding:2.5px 9px;border-radius:20px;border:1px solid transparent;white-space:nowrap}
+  .chip.ext{background:#eef2f7;color:#3b4654;border-color:#dce2ea}
+  .chip.int{background:#eaf2ee;color:#2c6048;border-color:#d3e6dc}
+  .chip.cat{background:#eef2f7;color:#54606e;border-color:#dce2ea}
+  .chip.warn{background:var(--red-bg);color:var(--red);border-color:#f3cdc8}
+  .chip.priv{background:var(--purple-bg);color:var(--purple);border-color:#e0d2ef}
+
+  .due{font-weight:600;font-size:12.5px}
+  .due.ov{color:var(--red)} .due.td{color:var(--amber)} .due.up{color:#3b4654} .due.none{color:var(--muted)}
+
+  .act{margin-left:auto;display:flex;gap:6px;align-items:center}
+  .act .pill{background:var(--accent-dim);color:var(--accent);border:1px solid #cfe0fd;
+        border-radius:7px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer}
+  .act .pill .edit{opacity:.55;font-weight:400;margin-left:5px}
+  .act .ghost{background:transparent;border:1px solid var(--line);color:var(--muted);
+        border-radius:7px;padding:5px 9px;font-size:12px;cursor:pointer}
+  .act .ghost:hover{color:var(--ink);border-color:#c7ccd3}
+
+  .why{display:none;margin-top:9px;padding:9px 11px;background:#f7f9fb;border:1px dashed #d7dde4;
+       border-radius:8px;color:#54606e;font-size:12px}
+  .why.show{display:block}
+  .why b{color:#3b4654}
+
+  /* right rail */
+  .rail{position:sticky;top:74px}
+  .rail .box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 15px;margin-bottom:16px}
+  .rail h3{font-size:12.5px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .dl{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f2f5}
+  .dl:last-child{border-bottom:0}
+  .dl .lab{display:flex;align-items:center;gap:9px}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .dot.ov{background:var(--red)} .dot.td{background:var(--amber)} .dot.up{background:#8aa0c0}
+  .dl .num{font-weight:700}
+  .rail .note{color:var(--muted2);font-size:11px;margin-top:4px}
+  .launch a{display:flex;gap:10px;align-items:center;padding:9px 8px;border-radius:8px;
+        text-decoration:none;color:var(--ink);font-size:13px}
+  .launch a:hover{background:#f3f6f9}
+  .launch a .ic{width:20px;text-align:center}
+  .launch a .desc{color:var(--muted);font-size:11.5px}
+
+  .footer{color:var(--muted2);font-size:11.5px;padding:10px 26px;border-top:1px solid var(--line);
+          margin-top:18px;display:flex;gap:18px;flex-wrap:wrap}
+  .footer b{color:var(--muted)}
+  .datenote{color:var(--muted2);font-size:11.5px;margin:-8px 0 14px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ===== module launcher (left rail) ===== -->
+  <nav class="nav">
+    <div class="brand">Lawbat<small>local · offline · no AI</small></div>
+    <a class="active" href="#"><span class="ic">▦</span> Home</a>
+    <a href="#"><span class="ic">✉</span> Inbox</a>
+    <a href="#"><span class="ic">🔎</span> Data Room — search</a>
+    <a href="#"><span class="ic">▤</span> Document index</a>
+    <a href="#"><span class="ic">⬛</span> Redaction</a>
+    <a href="#"><span class="ic">⏱</span> Timesheet</a>
+    <div class="sec">Matters</div>
+    <a href="#"><span class="ic">•</span> Acme Holdings v Beta Corp</a>
+    <a href="#"><span class="ic">•</span> Project Condor</a>
+    <a href="#"><span class="ic">•</span> Estate of R. Tan</a>
+    <div class="spacer"></div>
+    <div class="foot">PROTOTYPE — synthetic data.<br>Nothing here is a real matter.</div>
+  </nav>
+
+  <!-- ===== main ===== -->
+  <div class="main">
+    <div class="topbar">
+      <h1>Good morning, J. Smith</h1>
+      <div class="who">Firm: <b>ourfirm.example</b> · all data stays on this machine</div>
+    </div>
+
+    <div class="wrap">
+
+      <!-- honest-limits caveat (dismissible: "ignore all further warnings") -->
+      <div class="caveat" id="caveat">
+        <div class="ic">⚠️</div>
+        <div class="body">
+          <b>Assistive worklist — not a deadline calendar.</b>
+          <p>Rule-based and deterministic (no AI). It surfaces deadlines that are <i>written as dates</i>.
+             It will <b>not</b> catch deadlines phrased in words, deadlines inside attachments, or
+             limitation periods that arise from the facts. Review every item — confirm your own dates.</p>
+        </div>
+        <button onclick="document.getElementById('caveat').remove()">Ignore all further warnings</button>
+      </div>
+
+      <!-- global view over the user's own files -->
+      <div class="global">
+        <div class="stat"><div class="n">4</div><div class="l">matters</div></div>
+        <div class="stat"><div class="n">1,284</div><div class="l">documents indexed</div></div>
+        <div class="stat"><div class="n">9</div><div class="l">need attention · <a href="#">open inbox</a></div></div>
+        <div class="stat"><div class="n">9:12</div><div class="l">inbox synced (local)</div></div>
+      </div>
+
+      <div class="cols">
+        <!-- worklist -->
+        <section>
+          <div class="panel-h">
+            <h2>What do I do next</h2>
+            <span class="sub">9 items · triaged from your inbox</span>
+          </div>
+          <div class="datenote">Dates shown in your system region's format (DD/MM/YYYY).</div>
+
+          <!-- OVERDUE -->
+          <div class="grp">⏰ Overdue <span class="cnt">1</span></div>
+
+          <div class="card ov">
+            <div class="r1">
+              <span class="chip ext">External</span>
+              <span class="chip cat">Court filing</span>
+              <span class="sender">registry@statecourts.example</span>
+              <span class="matter">Acme Holdings v Beta Corp</span>
+            </div>
+            <div class="excerpt"><span class="lbl">excerpt</span>Notice of pre-trial conference — please confirm attendance and file the bundle by the date below.</div>
+            <div class="r3">
+              <span class="due ov">Overdue by 2 days · 17/06/2026</span>
+              <span class="act">
+                <span class="ghost" onclick="tw(this)">Why?</span>
+                <span class="pill">Respond <span class="edit">▾ edit</span></span>
+              </span>
+            </div>
+            <div class="why"><b>Why surfaced:</b> sender domain not in firm → External. Keyword "court"/"file the bundle" → Court filing. Date "17/06/2026" parsed in your region's format; today is 19/06/2026 → overdue. <b>You confirm the action and date.</b></div>
+          </div>
+
+          <!-- TODAY -->
+          <div class="grp">📌 Today <span class="cnt">2</span></div>
+
+          <div class="card td">
+            <div class="r1">
+              <span class="chip ext">External</span>
+              <span class="chip warn">⚠ Bcc detected</span>
+              <span class="sender">priya@clientco.example</span>
+              <span class="matter">Project Condor</span>
+            </div>
+            <div class="excerpt"><span class="lbl">excerpt</span>Can you turn the share-purchase agreement around before our board call this afternoon?</div>
+            <div class="r3">
+              <span class="due td">Due today</span>
+              <span class="act">
+                <span class="ghost" onclick="tw(this)">Why?</span>
+                <span class="pill">Review <span class="edit">▾ edit</span></span>
+              </span>
+            </div>
+            <div class="why"><b>Why surfaced:</b> request/turn-around phrasing → Review. "before our board call this afternoon" → due today. <b>⚠ This message has Bcc recipients</b> a To/Cc view wouldn't show — check before replying-all. (We don't label it "client email" — too easy to get wrong.)</div>
+          </div>
+
+          <div class="card td">
+            <div class="r1">
+              <span class="chip int">Internal</span>
+              <span class="sender">senior.partner@ourfirm.example</span>
+              <span class="matter">Estate of R. Tan</span>
+            </div>
+            <div class="excerpt"><span class="lbl">excerpt</span>Limitation runs Friday on the Tan estate — have we issued yet? Please confirm today.</div>
+            <div class="r3">
+              <span class="due td">Due today</span>
+              <span class="act">
+                <span class="ghost" onclick="tw(this)">Why?</span>
+                <span class="pill">Respond <span class="edit">▾ edit</span></span>
+              </span>
+            </div>
+            <div class="why"><b>Why surfaced:</b> internal sender, but it names a deadline ("limitation runs Friday", "confirm today") → kept deadline-salient, <b>not</b> filed under low-signal admin. We surface it; we do <b>not</b> compute the limitation for you.</div>
+          </div>
+
+          <!-- NEXT 7 DAYS -->
+          <div class="grp">🗓 Next 7 days <span class="cnt">1</span></div>
+
+          <div class="card">
+            <div class="r1">
+              <span class="chip ext">External</span>
+              <span class="sender">ap@vendor.example</span>
+              <span class="matter">Firm admin</span>
+            </div>
+            <div class="excerpt"><span class="lbl">excerpt</span>Our fee note for August is attached for settlement.</div>
+            <div class="r3">
+              <span class="due up">in 5 days · 24/06/2026</span>
+              <span class="act">
+                <span class="ghost" onclick="tw(this)">Why?</span>
+                <span class="pill">Pay <span class="edit">▾ edit</span></span>
+              </span>
+            </div>
+            <div class="why"><b>Why surfaced:</b> "fee note … for settlement" + attachment → Pay. Proximity is a fact (in 5 days); we show the date, not a "High/Low" opinion.</div>
+          </div>
+
+          <!-- NO DATE -->
+          <div class="grp">❔ No date detected — deadline unclear <span class="cnt">1</span></div>
+
+          <div class="card">
+            <div class="r1">
+              <span class="chip ext">External</span>
+              <span class="chip priv">🔒 Privileged / Without prejudice</span>
+              <span class="chip warn">⚠ Hidden attachment</span>
+              <span class="sender">counsel@otherfirm.example</span>
+              <span class="matter">Acme Holdings v Beta Corp</span>
+            </div>
+            <div class="excerpt"><span class="lbl">excerpt</span>We enclose our client's response to your proposal. This correspondence is marked without prejudice.</div>
+            <div class="r3">
+              <span class="due none">No date detected — deadline unclear</span>
+              <span class="act">
+                <span class="ghost" onclick="tw(this)">Why?</span>
+                <span class="pill">Review <span class="edit">▾ edit</span></span>
+              </span>
+            </div>
+            <div class="why"><b>Why surfaced:</b> "without prejudice" → flagged protected-handling (don't forward/disclose). A nested message is attached — its contents aren't in this preview. <b>No date was written, so the deadline is unclear — that does not tell you there's no deadline.</b> We don't label the sender "opposing counsel" — too error-prone.</div>
+          </div>
+
+          <!-- LOW SIGNAL -->
+          <div class="grp">▽ Low signal <span class="cnt">4</span></div>
+          <div class="card dim">
+            <div class="r1">
+              <span class="chip ext">External</span>
+              <span class="chip cat">Newsletter</span>
+              <span class="sender">updates@legaltechweekly.example</span>
+              <span class="matter">—</span>
+            </div>
+            <div class="excerpt"><span class="lbl">excerpt</span>This week in legal tech: five things you might have missed.</div>
+            <div class="r3">
+              <span class="due none">No date</span>
+              <span class="act"><span class="pill">File <span class="edit">▾ edit</span></span></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- right rail: deadlines + launcher -->
+        <aside class="rail">
+          <div class="box">
+            <h3>Deadlines</h3>
+            <div class="dl"><span class="lab"><span class="dot ov"></span> Overdue</span><span class="num">1</span></div>
+            <div class="dl"><span class="lab"><span class="dot td"></span> Today</span><span class="num">2</span></div>
+            <div class="dl"><span class="lab"><span class="dot up"></span> Next 7 days</span><span class="num">1</span></div>
+            <div class="note">Only deadlines written as dates. Confirm your own diary.</div>
+          </div>
+          <div class="box launch">
+            <h3>Jump to</h3>
+            <a href="#"><span class="ic">🔎</span><span>Search the data room<br><span class="desc">full-text across 1,284 docs</span></span></a>
+            <a href="#"><span class="ic">⬛</span><span>Redaction review<br><span class="desc">strip identifiers, lawyer sign-off</span></span></a>
+            <a href="#"><span class="ic">▤</span><span>Document index<br><span class="desc">schedule of documents (CSV)</span></span></a>
+            <a href="#"><span class="ic">⏱</span><span>Timesheet<br><span class="desc">one-click timer · draft narratives</span></span></a>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span><b>Local-only</b> — nothing leaves this machine</span>
+      <span><b>Deterministic</b> — rule-based, no model calls</span>
+      <span><b>Audited</b> — every read &amp; action logged</span>
+      <span>Prototype · synthetic data</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Demo-only: expand the "why" provenance. (Shipped product = host renders a typed
+  // view-model; interactivity round-trips as on-invoke, not module JS.)
+  function tw(el){var w=el.closest('.card').querySelector('.why');if(w)w.classList.toggle('show');}
+</script>
+</body>
+</html>

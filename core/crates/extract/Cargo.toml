@@ -1,0 +1,95 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[package]
+name = "extract"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Deterministic document-extraction engine for the CORE indexer (spec §2 / TODO
+# §4). This is a CORE-PLANE PURE LIBRARY: the core's ingestion/walker calls it to
+# turn matter files into text BEFORE anything lands in the matter store. It is NOT
+# `Core`-trait-bound and touches no matter data directly (no `runtime` dep), so it
+# stays a small, audit-clean, deterministic unit.
+#
+# DEPENDENCY POLICY (CLAUDE.md non-negotiables): deterministic, LOCAL, no model,
+# no network. Every dep here is pure-compute and works air-gapped-after-fetch —
+# NO networking / TLS / async-runtime / RNG crate enters the tree (verified with
+# `cargo tree -p extract`). The wired real deps:
+#   - `mail-parser` — RFC 5322 / MIME email parser (Stalwart's, written in 100%
+#                     safe Rust, no `unsafe`, no network, no I/O). `default-features
+#                     = false` keeps its optional `serde`/`rkyv` derives OUT; the
+#                     `full_encoding` feature is ENABLED so legacy multi-byte body
+#                     charsets (BIG5, ISO-2022-JP, …) decode deterministically —
+#                     that feature is what pulls in `encoding_rs` transitively (also
+#                     pure compute, no network). Its only further build dep is the
+#                     `hashify` PROC-MACRO (compile-time perfect hashing of header
+#                     names) + the proc-macro toolchain (`syn`/`quote`/
+#                     `proc-macro2`/`indexmap`), none of which ship in the runtime
+#                     binary.
+#   - `encoding_rs` — Gecko's charset decoder (pure Rust, no network, no RNG, no
+#                     I/O), declared DIRECTLY (and de-duplicated with mail-parser's
+#                     copy) so this crate can deterministically UTF-8-decode a raw
+#                     part body as an explicit last-resort fallback when mail-parser
+#                     flags an encoding problem on a part.
+# OOXML (.docx) extraction (`DocxExtractor`) — pure-Rust, offline, no native dep:
+#   - `zip`       — read the OOXML (.docx) ZIP container. `default-features = false`
+#                   + only the `deflate` feature: this DROPS the optional `aes-crypto`
+#                   / `bzip2` / `zstd` / `time` extras, so NO encryption / RNG / native
+#                   codec enters the tree. Its deps (flate2/miniz_oxide, zopfli,
+#                   crc32fast, indexmap, memchr) are all pure compute, no network, no
+#                   RNG (verified `cargo tree -p extract -i getrandom`).
+#   - `quick-xml` — stream the OOXML parts (pure Rust; only transitive dep is
+#                   `memchr`). Used as a pull parser over `word/document.xml` etc.
+# PDF extraction (`PdfExtractor`) — pure-Rust, offline, MIT:
+#   - `lopdf`     — pure-Rust PDF object/parser model (CLAUDE.md's redaction plan
+#                   names `lopdf`; reusing it here keeps the dep set tight). We parse
+#                   the page tree, FlateDecode content streams, and pull text from the
+#                   text-showing operators; we never WRITE a PDF.
+#                   `default-features = false` drops the optional `chrono`/`jiff`/
+#                   `time`/`rayon`/`image`/`serde` extras (no date crate, no parallel
+#                   runtime, no image codec).
+#                   *** DEPENDENCY-POLICY EXCEPTION — needs sign-off (flagged): ***
+#                   lopdf has NON-optional `rand` (-> `getrandom`) + `aes`/`cbc`/`md-5`
+#                   crypto deps, used ONLY for WRITING/encrypting PDFs and decrypting
+#                   RC4/AES-protected ones. This crate NEVER writes, encrypts, or
+#                   decrypts — so that code path is never reached — but `rand`/
+#                   `getrandom` still appear in the dependency *tree*, which the
+#                   workspace's "NO RNG/getrandom" posture (see runtime/Cargo.toml)
+#                   would otherwise forbid. They are pure compute (no network egress);
+#                   `getrandom` only touches the OS RNG if PDF-encryption key
+#                   generation runs, which it does not here. Recorded as a conscious,
+#                   reviewable trade-off rather than a silent addition. The alternative
+#                   (a from-scratch PDF tokenizer, or the vendored NATIVE `pdfium`) is
+#                   a much larger surface; `lopdf` is the smallest honest first step.
+#   - `flate2`    — capped FlateDecode of a PDF content stream's RAW bytes. lopdf's
+#                   own `get_page_content` decompresses via `ZlibDecoder::read_to_end`
+#                   with NO size cap, so a tiny FlateDecode content stream that
+#                   inflates to GiB of RAW BYTES OOMs DURING decompression — before the
+#                   per-page byte check ever runs. We instead decode the raw stream
+#                   ourselves through `flate2`'s `ZlibDecoder`/`DeflateDecoder` wrapped
+#                   in `Read::take(cap + 1)`, so the bomb is bounded as it inflates.
+#                   Pure compute, no network/RNG; ALREADY in the tree transitively via
+#                   `lopdf` AND `zip` (verified `cargo tree -p extract -i flate2`), so
+#                   declaring it DIRECTLY adds ZERO new lock packages.
+# Outlook `.msg` extraction (`MsgExtractor`) — pure-Rust, offline:
+#   - `cfb`       — read the Compound File Binary (OLE structured-storage) container an
+#                   Outlook `.msg` is. Pure-Rust, no network/RNG; used READ-ONLY
+#                   (`CompoundFile::open` over an in-memory cursor) — we never create/write
+#                   a CFB, so its only clock-touching code (root-entry timestamps via the
+#                   transitive `web-time` shim, WRITE path only) is never reached and
+#                   extraction stays DETERMINISTIC. We read only the well-defined
+#                   variable-length MAPI property streams (`__substg1.0_*`); string bodies
+#                   are decoded with the existing `encoding_rs`. Signed off as a
+#                   pure-compute, offline parser consistent with the dep policy.
+# Adding anything beyond the deps below needs explicit sign-off.
+[dependencies]
+mail-parser = { version = "0.11", default-features = false, features = ["full_encoding"] }
+encoding_rs = "0.8"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+quick-xml = "0.36"
+lopdf = { version = "0.41", default-features = false }
+flate2 = "1"
+cfb = "0.14"
+
+[dev-dependencies]

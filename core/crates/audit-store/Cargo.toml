@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[package]
+name = "audit-store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# DURABLE, tamper-evident audit backend (audit persistence gate, increments 0+1).
+# The `runtime` crate stays the MINIMAL trusted core: std-only + pure-compute
+# `sha2`/`hmac`, with NO filesystem and NO RNG (a CI guard enforces no RNG reaches
+# `runtime`). The durable backend's filesystem I/O therefore lives HERE, in a
+# SEPARATE crate, never in `runtime`.
+#
+# DEPENDENCY POLICY (load-bearing): this crate depends on exactly ONE thing —
+# `runtime` (for the canonical MAC primitive `compute_entry_hash`/`verify_entries`,
+# the `Audit` trait it implements, `AuditEntry`/`AuditHash`, `Clock`, and the error
+# type). It pulls in NO serde on the authoritative chained record (a hand-rolled,
+# fixed-layout binary codec is used so the on-disk record bytes ARE the same bytes
+# `compute_entry_hash` MACs — one canonical form, no second serializer to drift),
+# and NO RNG / network. CRC-32 (for torn-record detection) is hand-rolled (std
+# only) rather than adding `crc32fast`, keeping the dependency surface to `runtime`
+# alone. SHA-256 (the key-id) and HMAC (the anchor MAC) are re-exported transitively
+# through `runtime`'s `sha2`/`hmac`; we depend on them directly so the codec is
+# self-documenting.
+#
+# DELIBERATELY does NOT enable `runtime`'s `dev-audit-key` feature — a durable audit
+# store takes an INJECTED key (`&[u8]`); it never reaches for the public dev key.
+[dependencies]
+runtime = { path = "../runtime" }
+# Same RustCrypto pair `runtime` already vets (pure compute, no RNG, no network).
+# `sha2` keys the on-disk header's key-id (SHA-256(key) — identifies WHICH key,
+# never the key); `hmac` keys the external anchor's MAC. Sharing `runtime`'s exact
+# versions keeps one set of transitive crypto deps.
+sha2 = "0.10"
+hmac = "0.12"

@@ -1,0 +1,2311 @@
+<!doctype html>
+<!--
+  ============================================================================
+  Lawbat — REDACTION REVIEWER (FULL FLOW) — REFERENCE DESIGN MOCKUP
+  ============================================================================
+  A staged, document-preview-driven review experience for NON-TECHNICAL
+  small-law-firm users. This is the RICHER information architecture of the
+  same product locked by designs/redaction.dc.html — NOT a redesign. Every
+  :root token and component (.banner / .btn / .chip / .card / .passage /
+  .keycard / .repl-opt / the focus ring) is reused VERBATIM from that file.
+
+  Five stages, one persistent stepper:
+     Document → Detection → Review → Sensitive passages → Export
+  The stepper shows progress and GATES: Export is blocked until Review's
+  uncertain items are addressed AND the Sensitive-passages stage is
+  acknowledged.
+
+  HARD CONSTRAINTS honored:
+   - Fully AIR-GAPPED / self-contained. No external resources of any kind:
+     no CDN, no web fonts, no remote <link>/<script>/<img>/<iframe>, no CSS
+     @import, no off-file url(). System font stack only. The only http(s)
+     strings are INERT example text inside a fake document.
+   - SYNTHETIC fake data only — Project Heron / Northwind Holdings /
+     Jefferson Tan→[A] / Alexander Wong→[B] / NRIC S1234567D. Not real data.
+   - Deterministic detection is stated honestly (no AI guessing) so the
+     manual add/correct affordances matter.
+
+  The demo bar (top) switches stages + states and is clearly marked NOT part
+  of the product. Open this file directly in any browser.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lawbat — Redaction reviewer (design reference)</title>
+<style>
+/* ==========================================================================
+   1. DESIGN TOKENS  (:root)  — reused VERBATIM from designs/redaction.dc.html
+   ========================================================================== */
+:root{
+  --ink:#1a1d21; --ink2:#23272d; --muted:#6b7280; --muted2:#9aa1ab;
+  --line:#e3e6ea; --line2:#eef1f5; --bg:#f4f6f8; --card:#ffffff; --card2:#fbfcfe;
+
+  --accent:#2f6df6; --accent-700:#2a62db; --accent-800:#234e9e;
+  --accent-dim:#e8f0fe; --accent-line:#cfe0fd;
+
+  --red:#c0392b;    --red-bg:#fdecea;    --red-line:#f3cdc8;
+  --amber:#b9770e;  --amber-bg:#fef6e7;  --amber-line:#f0d9a8;
+  --green:#1e7d4f;  --green-bg:#e7f5ee;  --green-line:#cfe9da;
+  --purple:#6b3fa0; --purple-bg:#f0e9f8; --purple-line:#e0d2ef;
+
+  /* --- type scale --- a11y: smallest steps bumped for readability --- */
+  --fs-xs:12px;     /* was 11.5px — bumped (a11y: fine print readable) */
+  --fs-sm:13px;     /* was 12.5px — bumped */
+  --fs-base:14px; --fs-md:15px; --fs-lg:17px; --fs-xl:22px;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:26px; --s7:36px;
+  --r-sm:7px; --r-md:10px; --r-lg:12px; --r-pill:20px;
+  --sh-1:0 1px 2px rgba(20,26,40,.04), 0 1px 1px rgba(20,26,40,.03);
+  --sh-2:0 6px 20px rgba(20,26,40,.10), 0 2px 6px rgba(20,26,40,.05);
+  --focus:0 0 0 3px var(--accent-dim);
+  --topbar-h:56px;
+
+  /* highlight tints for the document preview (status-mapped, design-token based) */
+  --hl-ready:rgba(30,125,79,.20);     --hl-ready-edge:var(--green);
+  --hl-review:rgba(185,119,14,.22);   --hl-review-edge:var(--amber);
+  --hl-rejected:rgba(154,161,171,.18);--hl-rejected-edge:var(--muted2);
+  --hl-manual:rgba(47,109,246,.18);   --hl-manual-edge:var(--accent);
+  --hl-priv:rgba(107,63,160,.16);     --hl-priv-edge:var(--purple);
+}
+
+/* ==========================================================================
+   2. RESET + BASE  (verbatim)
+   ========================================================================== */
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--ink);
+  font-size:var(--fs-base);line-height:1.45;-webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{margin:0;font-weight:600}
+p{margin:0}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:none;box-shadow:var(--focus);border-radius:var(--r-sm)}
+/* a11y: a real, visible skip link */
+.skip{position:absolute;left:-999px;top:auto}
+.skip:focus{left:8px;top:8px;z-index:99;background:var(--card);border:1px solid var(--accent);
+  padding:8px 12px;border-radius:var(--r-sm);box-shadow:var(--sh-2)}
+.vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* ==========================================================================
+   3. DEMO HARNESS  (NOT part of the product)
+   ========================================================================== */
+.demobar{
+  position:sticky;top:0;z-index:60;background:#11151b;color:#cdd3db;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:9px 16px;font-size:12px;border-bottom:1px solid #000;
+}
+.demobar b{color:#fff;font-size:12px;font-weight:700;letter-spacing:.2px}
+.demobar .tag{color:#8b94a0}
+.demobar .grp{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.demobar .sep{width:1px;height:18px;background:#333c47;margin:0 2px}
+.demobar button{
+  font:inherit;background:#222933;color:#cdd3db;border:1px solid #333c47;
+  border-radius:6px;padding:5px 9px;cursor:pointer;
+}
+.demobar button:hover{background:#2c3641;color:#fff}
+.demobar button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.demobar .lab{color:#8b94a0;font-size:11px;margin-right:2px}
+.synthetic-note{
+  text-align:center;color:var(--muted2);font-size:var(--fs-xs);
+  padding:8px;letter-spacing:.3px;background:var(--bg);
+}
+
+.stage{display:none}
+.stage.show{display:block}
+
+/* ==========================================================================
+   4. APP SHELL  (verbatim)
+   ========================================================================== */
+.app{min-height:100vh;display:flex;flex-direction:column}
+.topbar{
+  background:var(--card);border-bottom:1px solid var(--line);
+  height:var(--topbar-h);padding:0 var(--s6);
+  display:flex;align-items:center;justify-content:space-between;gap:var(--s4);
+  position:sticky;top:41px;z-index:30;  /* 41px = under the demo bar; ship value = top:0 */
+}
+.topbar .brand{display:flex;align-items:center;gap:10px;min-width:0}
+.topbar .logo{
+  width:26px;height:26px;border-radius:7px;flex:none;
+  background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:14px;letter-spacing:-.5px;
+}
+.topbar .titles{min-width:0}
+.topbar h1{font-size:var(--fs-lg);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .sub{color:var(--muted);font-size:var(--fs-xs);line-height:1.1;margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .actions{display:flex;align-items:center;gap:var(--s3)}
+.topbar .back{color:var(--accent);font-size:var(--fs-sm);display:inline-flex;align-items:center;gap:5px}
+
+.wrap{padding:var(--s5) var(--s6) var(--s7);max-width:980px;width:100%;margin:0 auto;flex:1}
+.wrap.wide{max-width:1240px}
+
+.footer{
+  display:flex;gap:var(--s6);flex-wrap:wrap;color:var(--muted);font-size:var(--fs-xs);
+  padding:14px var(--s6);border-top:1px solid var(--line);background:var(--card);
+}
+.footer b{color:var(--ink2)}
+.footer .f{display:flex;align-items:center;gap:6px}
+.footer .f .dotmark{width:6px;height:6px;border-radius:50%;background:var(--green)}
+
+/* ==========================================================================
+   5. COMPONENT LIBRARY  (verbatim from the locked design system)
+   ========================================================================== */
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:var(--s4) var(--s5);margin-bottom:var(--s4);box-shadow:var(--sh-1);
+}
+.card.flush{padding:0}
+.section-h{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);margin-bottom:var(--s2)}
+.section-h h2{font-size:var(--fs-md)}
+.section-h .sub{color:var(--muted);font-size:var(--fs-sm)}
+.lbl{display:block;font-weight:600;font-size:13.5px;margin-bottom:7px}  /* a11y bump */
+.help{color:var(--muted);font-size:var(--fs-sm);margin-top:4px}
+.help.warn{color:var(--amber)}
+.divider{height:1px;background:var(--line);margin:var(--s4) 0}
+
+button{font:inherit;cursor:pointer}
+.btn{
+  display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-sm);
+  padding:9px 16px;font-size:13.5px;font-weight:600;border:1px solid transparent;
+  transition:background .12s,border-color .12s,box-shadow .12s;
+}
+.btn:focus-visible{box-shadow:var(--focus)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.primary:hover{background:var(--accent-700);border-color:var(--accent-700)}
+.btn.primary:active{background:#244fb0}
+.btn.primary:disabled{background:#aebfe6;border-color:#aebfe6;color:var(--ink2);cursor:default}
+.btn.ghost{background:var(--card);color:var(--ink2);border-color:var(--line)}
+.btn.ghost:hover{background:#f3f6f9;border-color:#c7ccd3}
+.btn.ghost:active{background:#eaeef3}
+.btn.ghost:disabled{color:var(--muted2);background:var(--card);cursor:default}
+.btn.danger{background:var(--card);color:var(--red);border-color:var(--red-line)}
+.btn.danger:hover{background:var(--red-bg)}
+.btn.lg{padding:11px 20px;font-size:var(--fs-md)}
+.btn.sm{padding:6px 11px;font-size:13px}
+.linkbtn{
+  background:transparent;border:none;color:var(--accent);font-size:var(--fs-sm);
+  padding:3px 5px;border-radius:5px;font-weight:600;
+}
+.linkbtn:hover{text-decoration:underline}
+.linkbtn:disabled{color:var(--muted2);cursor:default;text-decoration:none}
+.btn-row{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
+.hint{color:var(--muted);font-size:var(--fs-sm)}
+.hint.warn{color:var(--amber)}
+.hint.ok{color:var(--green)}
+.orsep{color:var(--muted2);font-size:var(--fs-sm)}
+
+.chip{
+  display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-xs);
+  border-radius:var(--r-pill);padding:2px 9px;font-weight:600;border:1px solid transparent;
+  white-space:nowrap;letter-spacing:.1px;
+}
+.chip.neutral{background:var(--line2);color:#475063;border-color:#dce2ea}
+.chip.accent{background:var(--accent-dim);color:var(--accent-800);border-color:var(--accent-line)}
+.chip.high{background:var(--red-bg);color:var(--red);border-color:var(--red-line)}
+.chip.med{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-line)}
+.chip.ok{background:var(--green-bg);color:var(--green);border-color:var(--green-line)}
+.chip.priv{background:var(--purple-bg);color:var(--purple);border-color:var(--purple-line)}
+.chip.count{min-width:22px;justify-content:center;font-weight:700}
+
+.banner{
+  display:flex;gap:12px;align-items:flex-start;border-radius:var(--r-md);
+  padding:13px 15px;margin-bottom:var(--s4);border:1px solid var(--line);
+}
+.banner .ic{font-size:18px;line-height:1.2;flex:none}
+.banner .body{flex:1;min-width:0}
+.banner .body > b{display:block}  /* direct child only — inline <b> inside <p> stays inline */
+.banner .body p{margin-top:3px;font-size:13px}  /* a11y bump from 12.8 */
+.banner .x{
+  background:transparent;border:1px solid currentColor;color:inherit;opacity:.55;
+  border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap;
+}
+.banner .x:hover{opacity:1}
+/* Variant color is scoped to the DIRECT-child headline <b> only (matches the
+   display:block fix). A mid-sentence <b> inside <p> keeps the body's strong-ink
+   shade so headline emphasis stays visually distinct from inline emphasis. */
+.banner.honest{background:var(--amber-bg);border-color:var(--amber-line)}
+.banner.honest > .body > b{color:var(--amber)} .banner.honest p{color:#7a5a16} .banner.honest p b{color:#5f470f}
+.banner.warn{background:var(--amber-bg);border-color:var(--amber-line)}
+.banner.warn > .body > b{color:var(--amber)} .banner.warn p{color:#7a5a16} .banner.warn p b{color:#5f470f}
+.banner.error{background:var(--red-bg);border-color:var(--red-line)}
+.banner.error > .body > b{color:var(--red)} .banner.error p{color:#8a322a} .banner.error p b{color:#6e2820}
+.banner.info{background:var(--accent-dim);border-color:var(--accent-line)}
+.banner.info > .body > b{color:var(--accent-800)} .banner.info p{color:#2c4a86} .banner.info p b{color:#1f3a6b}
+.banner.ok{background:var(--green-bg);border-color:var(--green-line)}
+.banner.ok > .body > b{color:var(--green)} .banner.ok p{color:#1c5a3c} .banner.ok p b{color:#154a31}
+
+.field{margin-bottom:var(--s3)}
+.text-input,textarea{
+  width:100%;font:inherit;color:var(--ink);background:var(--card2);
+  border:1px solid var(--line);border-radius:9px;padding:10px 12px;
+  transition:border-color .12s,box-shadow .12s;
+}
+.text-input{font-size:14px}
+textarea{font-family:var(--mono);font-size:13px;line-height:1.5;min-height:150px;resize:vertical}
+textarea.short{min-height:84px}
+textarea.out{min-height:170px;background:#f8fafc}
+.text-input:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:var(--focus);background:var(--card)}
+.text-input::placeholder,textarea::placeholder{color:var(--muted2)}
+
+.check{display:inline-flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:13.5px;color:var(--ink2)}
+.check input{position:absolute;opacity:0;width:0;height:0}
+.check .box{
+  flex:none;width:17px;height:17px;margin-top:1px;border-radius:5px;
+  border:1.5px solid #c2c9d2;background:#fff;position:relative;
+  transition:background .1s,border-color .1s,box-shadow .1s;
+}
+.check:hover .box{border-color:var(--accent)}
+.check input:focus-visible + .box{box-shadow:var(--focus)}
+.check input:checked + .box{background:var(--accent);border-color:var(--accent)}
+.check input:checked + .box::after{
+  content:"";position:absolute;left:5px;top:1.5px;width:4px;height:8px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(43deg);
+}
+.check input:indeterminate + .box,.check.indeterminate .box{background:var(--accent-dim);border-color:var(--accent)}
+.check input:indeterminate + .box::after,.check.indeterminate .box::after{
+  content:"";position:absolute;left:3px;right:3px;top:7px;height:2.5px;
+  border-radius:2px;background:var(--accent);transform:none;border:0;
+}
+.check.disabled{color:var(--muted2);cursor:default}
+.check.disabled .box{background:var(--line2);border-color:var(--line)}
+
+.switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-size:13.5px;color:var(--ink2)}
+.switch input{position:absolute;opacity:0;width:0;height:0}
+.switch .track{flex:none;width:38px;height:22px;border-radius:20px;background:#cdd3db;position:relative;transition:background .14s}
+.switch .track::after{content:"";position:absolute;left:2px;top:2px;width:18px;height:18px;border-radius:50%;
+  background:#fff;box-shadow:var(--sh-1);transition:transform .14s}
+.switch input:checked + .track{background:var(--accent)}
+.switch input:checked + .track::after{transform:translateX(16px)}
+.switch input:focus-visible + .track{box-shadow:var(--focus)}
+
+.pillset{display:flex;flex-wrap:wrap;gap:8px}
+.pill-opt{
+  display:inline-flex;align-items:center;gap:7px;cursor:pointer;user-select:none;
+  border:1px solid var(--line);border-radius:var(--r-pill);padding:6px 13px 6px 11px;
+  font-size:13.5px;color:var(--ink2);background:var(--card);transition:all .1s;
+}
+.pill-opt:hover{border-color:#c7ccd3;background:#f7f9fb}
+.pill-opt input{position:absolute;opacity:0;width:0;height:0}
+.pill-opt .tick{width:15px;height:15px;border-radius:4px;border:1.5px solid #c2c9d2;flex:none;position:relative}
+.pill-opt input:checked ~ .tick{background:var(--accent);border-color:var(--accent)}
+.pill-opt input:checked ~ .tick::after{content:"";position:absolute;left:4px;top:1px;width:3.5px;height:7px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(43deg)}
+.pill-opt input:checked ~ .lbltxt{font-weight:600;color:var(--accent-800)}
+.pill-opt:has(input:checked){border-color:var(--accent-line);background:var(--accent-dim)}
+.pill-opt input:focus-visible ~ .tick{box-shadow:var(--focus)}
+
+.spinner{width:18px;height:18px;border-radius:50%;border:2.5px solid var(--accent-line);
+  border-top-color:var(--accent);animation:spin .7s linear infinite;flex:none}
+.spinner.lg{width:34px;height:34px;border-width:3.5px}
+.spinner.ghost{border-color:#d7dde6;border-top-color:var(--muted)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation:none}}
+.working{display:flex;align-items:center;gap:11px;color:var(--ink2);font-size:13.5px;
+  background:var(--accent-dim);border:1px solid var(--accent-line);border-radius:var(--r-md);padding:13px 15px}
+.working .sub{color:var(--accent-800);font-size:var(--fs-sm);margin-top:1px}
+.progress{height:8px;border-radius:6px;background:var(--line2);overflow:hidden;margin-top:8px}
+.progress > span{display:block;height:100%;background:var(--accent);border-radius:6px;transition:width .3s}
+.progress.green > span{background:var(--green)}
+.progress.amber > span{background:var(--amber)}
+
+.empty{color:var(--muted);background:var(--card);border:1px dashed var(--line);
+  border-radius:var(--r-md);padding:26px 22px;text-align:center}
+.empty .ic{font-size:26px;opacity:.5;margin-bottom:8px}
+.empty > b{color:var(--ink2);display:block;margin-bottom:3px}  /* direct child only */
+
+/* ---- input / entry (verbatim) ---- */
+.dropzone{border:1.5px dashed var(--line);border-radius:var(--r-md);
+  padding:22px;text-align:center;background:var(--card2);transition:all .12s}
+.dropzone:hover,.dropzone.drag{border-color:var(--accent-line);background:var(--accent-dim)}
+.dropzone .ic{font-size:26px;opacity:.6}
+.dropzone .big{font-weight:600;font-size:14px;margin:6px 0 2px;color:var(--ink2)}
+.filebtn{display:inline-block;background:#eef1f5;color:var(--ink2);border:1px solid var(--line);
+  border-radius:var(--r-sm);padding:9px 14px;font-size:13.5px;font-weight:600;cursor:pointer}
+.filebtn:hover{background:#e6eaf0}
+.filebtn:focus-within{box-shadow:var(--focus)}
+.filetypes{color:var(--muted);font-size:var(--fs-xs);margin-top:9px}
+.filetypes code{font-family:var(--mono);background:var(--line2);border-radius:4px;padding:0 4px}
+.filenote{background:var(--accent-dim);border:1px solid var(--accent-line);color:var(--accent-800);
+  border-radius:9px;padding:9px 12px;margin-top:11px;font-size:13px}
+
+/* ---- detection settings (verbatim) ---- */
+.settings-summary{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.settings-summary .what{flex:1;min-width:240px}
+.settings-summary .what .k{color:var(--muted);font-size:var(--fs-sm);margin-bottom:4px}
+.lookfor{display:flex;flex-wrap:wrap;gap:6px}
+.settings-more{margin-top:2px}
+.settings-more > summary{list-style:none;cursor:pointer;color:var(--accent);font-size:13.5px;font-weight:600;
+  display:inline-flex;align-items:center;gap:6px;padding:4px 0}
+.settings-more > summary::-webkit-details-marker{display:none}
+.settings-more > summary::before{content:"\25B8";font-size:10px;color:var(--muted2)}
+.settings-more[open] > summary::before{content:"\25BE"}
+.settings-more[open] > summary{margin-bottom:6px}
+.optgrp{border:1px solid var(--line);border-radius:9px;padding:12px 14px;margin-top:12px;background:var(--card2)}
+.optgrp .gh{font-size:13px;font-weight:700;color:var(--ink2);margin-bottom:3px}
+.opt-grid{display:flex;flex-wrap:wrap;gap:9px 20px;margin-top:8px}
+
+/* ---- candidate rows (verbatim) ---- */
+.cand{display:flex;gap:11px;align-items:flex-start;padding:10px 11px;
+  border:1px solid var(--line);border-radius:9px;margin-bottom:7px;background:#fff;transition:border-color .1s,box-shadow .1s}
+.cand:hover{border-color:#cdd6e3}
+.cand.sel{border-color:var(--accent);box-shadow:var(--focus)}
+.cand .meta{flex:1;min-width:0}
+.cand .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+.cand .val{font-family:var(--mono);font-size:13px;color:var(--ink);word-break:break-all}
+.cand .ctx{color:var(--muted);font-size:12.5px;margin-top:3px;word-break:break-word}  /* a11y bump */
+.cand .ctx mark{background:#ffe9a8;color:var(--ink);border-radius:2px;padding:0 1px;font-family:var(--mono)}
+.cand .loc{font-size:12px;color:var(--accent-800);font-weight:600;margin-top:4px;
+  display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.cand .loc:hover{text-decoration:underline}
+.cand .rowacts{display:flex;gap:3px;margin-top:6px;flex-wrap:wrap}
+
+/* ---- privilege passages (verbatim) ---- */
+.priv-card{border-color:var(--purple-line)}
+.priv-card .section-h h2{color:var(--purple)}
+.priv-banner{background:var(--purple-bg);border:1px solid var(--purple-line);color:#4f2d78;
+  border-radius:9px;padding:10px 13px;margin:4px 0 14px;font-size:13px;line-height:1.5}
+.priv-banner b{color:var(--purple)}
+.passages{display:flex;flex-direction:column;gap:11px}
+.passage{border:1px solid var(--line);border-left-width:4px;border-radius:8px;padding:10px 13px;background:#fff}
+.passage .ptop{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.passage .pcat{text-transform:uppercase;letter-spacing:.4px;font-size:11px;font-weight:700}  /* a11y bump */
+.passage .preason{font-size:12.5px;color:var(--ink2)}
+.passage .pkw{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:5px;
+  padding:0 6px;font-size:11.5px;font-weight:600;color:var(--ink2);margin-right:4px}
+.passage .ptext{font-size:13px;color:var(--ink2);line-height:1.55;word-break:break-word}
+.passage .ptext mark{background:#f0e3ff;color:#3d2461;border-radius:2px;padding:0 1px}
+.passage.privilege{border-left-color:var(--purple);background:var(--purple-bg)}
+.passage.privilege .pcat{color:var(--purple)}
+.passage.reident{border-left-color:var(--red);background:var(--red-bg)}
+.passage.reident .pcat{color:var(--red)}
+.passage .pacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px;align-items:center}
+.passage .ploc{font-size:12px;color:var(--muted);font-weight:600}
+
+/* ---- result / output (verbatim) ---- */
+.result-meta{font-size:13.5px;color:var(--ink2);margin-bottom:12px}
+.result-meta b{color:var(--ink)}
+.saved-pdf{display:flex;gap:13px;align-items:flex-start;background:var(--green-bg);
+  border:1px solid var(--green-line);border-radius:var(--r-md);padding:14px 16px}
+.saved-pdf .ic{font-size:22px;color:var(--green);line-height:1.1;flex:none}
+.saved-pdf .body b{color:var(--green)}
+.saved-pdf .body .fn{font-family:var(--mono);background:#fff;border:1px solid var(--green-line);
+  border-radius:5px;padding:1px 6px;font-size:12.5px}
+.saved-pdf .body p{margin-top:5px;font-size:13px;color:#1c5a3c}
+
+/* ---- replacement-style radio cards (verbatim) ---- */
+.repl-choice{display:flex;flex-direction:column;gap:9px}
+.repl-opt{display:flex;gap:11px;align-items:flex-start;cursor:pointer;
+  border:1px solid var(--line);border-radius:9px;padding:11px 13px;background:var(--card);transition:border-color .1s,background .1s}
+.repl-opt:hover{border-color:#c7ccd3;background:#f7f9fb}
+.repl-opt input{position:absolute;opacity:0;width:0;height:0}
+.repl-opt .dot{flex:none;width:17px;height:17px;margin-top:1px;border-radius:50%;
+  border:1.5px solid #c2c9d2;background:#fff;position:relative;transition:border-color .1s}
+.repl-opt input:checked ~ .dot{border-color:var(--accent)}
+.repl-opt input:checked ~ .dot::after{content:"";position:absolute;left:3.5px;top:3.5px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.repl-opt input:focus-visible ~ .dot{box-shadow:var(--focus)}
+.repl-opt:has(input:checked){border-color:var(--accent-line);background:var(--accent-dim)}
+.repl-opt .rtxt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.repl-opt .rtxt > b{font-size:13.5px;color:var(--ink2);font-weight:600}
+.rtok{font-family:var(--mono);font-size:12.5px;background:var(--line2);border:1px solid var(--line);
+  border-radius:4px;padding:0 4px;color:var(--ink2);white-space:nowrap}
+
+.lbl-tok{font-family:var(--mono);font-size:12.5px;font-weight:600;background:var(--accent-dim);
+  color:var(--accent-800);border:1px solid var(--accent-line);border-radius:4px;padding:0 3px}
+.result-pre{font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--ink);
+  background:#f8fafc;border:1px solid var(--line);border-radius:9px;padding:12px 13px;
+  white-space:pre-wrap;word-break:break-word;margin:0}
+.keycard{background:var(--amber-bg);border:1px solid var(--amber-line);border-radius:var(--r-md);padding:14px 16px;margin-top:14px}
+.keycard .keyhead{display:flex;gap:11px;align-items:flex-start}
+.keycard .keyhead .ic{font-size:20px;line-height:1.1;flex:none;color:var(--amber)}
+.keycard .keyhead > div > b{color:var(--amber);display:block}  /* direct headline only — inline <b> inside <p> stays inline */
+.keycard .keyhead p{margin-top:3px;font-size:13px;color:#7a5a16}
+.keycard .keystrong{font-weight:700;color:var(--amber)}
+.keytable{display:flex;flex-direction:column;gap:5px;margin-top:12px}
+.keyrow{display:flex;gap:10px;align-items:baseline;background:#fff;border:1px solid var(--amber-line);
+  border-radius:7px;padding:7px 10px;font-size:13px}
+.keyrow .k{flex:none;min-width:112px}
+.keyrow .arr{color:var(--muted2);flex:none}
+.keyrow .v{font-family:var(--mono);font-size:12.5px;color:var(--ink2);word-break:break-all}
+
+/* ==========================================================================
+   6. NEW — STEPPER (persistent stage progress header + gates)
+   ----------------------------------------------------------------------------
+   REBUILT: a simple, spacious horizontal step indicator. Each step is a
+   vertical stack — a number/check badge on its own line, a short title, and an
+   OPTIONAL status sub-label, each on its own line with explicit gaps so nothing
+   can collide. No absolutely-positioned text, no marks competing for width.
+   --stepper-h is the rendered height of this bar (used by the sticky preview
+   pane offset below) — keep it in sync if the padding/badge size changes.
+   ========================================================================== */
+:root{ --stepper-h:120px; }  /* rendered height of the vertical-stack stepper (measured: badge+text+mark+padding) */
+.stepper{
+  background:var(--card);border-bottom:1px solid var(--line);
+  position:sticky;top:97px;z-index:25;   /* under demo(41) + topbar(56) */
+  padding:10px var(--s6);
+}
+.stepper ol{
+  list-style:none;margin:0 auto;padding:0;max-width:1240px;
+  display:flex;align-items:flex-start;gap:var(--s3);
+}
+.step{flex:1;min-width:0}
+.step .btn-step{
+  width:100%;display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;
+  background:transparent;border:1px solid transparent;border-radius:var(--r-md);
+  padding:8px 8px;color:var(--muted);font:inherit;
+}
+.step .btn-step:hover:not(:disabled){background:var(--line2)}
+.step .btn-step:disabled{cursor:default}
+.step .num{
+  flex:none;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;border:1.5px solid var(--line);background:var(--card);color:var(--muted);
+}
+/* the text stack: title + optional status sub-label, each on its own line */
+.step .stxt{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;max-width:100%}
+.step .stxt .t{
+  display:block;max-width:100%;font-size:13px;font-weight:600;color:var(--ink2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;
+}
+.step .stxt .s{
+  display:block;max-width:100%;font-size:var(--fs-xs);color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;
+}
+/* the status mark sits on its OWN line under the text, as a small muted pill */
+.step .gatemark,.step .lockmark,.step .donemark{
+  flex:none;margin-top:1px;font-size:var(--fs-xs);font-weight:700;line-height:1.2;
+  white-space:nowrap;letter-spacing:.2px;
+}
+.step .gatemark{color:#8a5a09}   /* darkened amber — WCAG AA on white */
+.step .lockmark{color:var(--muted)}
+.step .donemark{color:var(--green)}
+/* states */
+.step.done .num{background:var(--green);border-color:var(--green);color:#fff}
+.step.done .stxt .t{color:var(--ink2)}
+.step.current .btn-step{background:var(--accent-dim);border-color:var(--accent-line)}
+.step.current .num{background:var(--accent);border-color:var(--accent);color:#fff}
+.step.current .stxt .t{color:var(--accent-800)}
+.step.todo .num{color:var(--muted)}
+.step.locked .num{border-style:dashed}
+.step.locked .stxt .t{color:var(--muted)}
+.step.gate .num{background:var(--amber-bg);border-color:var(--amber-line);color:#8a5a09}
+/* the connector sits between steps, aligned to the badge row */
+.stepper .conn{flex:none;align-self:flex-start;width:18px;height:2px;background:var(--line);
+  border-radius:2px;margin-top:21px}
+@media (max-width:920px){
+  .step .stxt .s{display:none}
+  .stepper ol{gap:var(--s2)}
+  .stepper .conn{width:10px}
+}
+
+/* ==========================================================================
+   7. NEW — STAGE 3 two-pane review (document preview + findings)
+   ========================================================================== */
+.review2{display:grid;grid-template-columns:minmax(360px,1.05fr) minmax(380px,1fr);gap:var(--s4);align-items:start}
+@media (max-width:1080px){.review2{grid-template-columns:1fr}}
+
+/* the preview pane — sticks just below demo bar + topbar (97px) + stepper.
+   Ship mode (no demo bar, topbar at top:0) → calc(56px + var(--stepper-h)). */
+.preview-pane{position:sticky;top:calc(97px + var(--stepper-h) + 4px)}
+@media (max-width:1080px){.preview-pane{position:static}}
+.preview-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.preview-head h2{font-size:var(--fs-md)}
+/* one-line live-preview affordance note above the text preview (text path only) */
+.preview-note{display:flex;gap:9px;align-items:flex-start;background:var(--accent-dim);
+  border:1px solid var(--accent-line);border-radius:9px;padding:9px 12px;margin-bottom:10px;
+  font-size:12.5px;line-height:1.5;color:var(--accent-800)}
+.preview-note .ic{flex:none;line-height:1.4;font-size:13px}
+.preview-note b{color:var(--accent-800)}
+.pagebar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.pagebar .pg{font-weight:600;color:var(--ink2)}
+.toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;
+  padding:7px 9px;background:var(--card2);border:1px solid var(--line);border-radius:9px}
+.toolbar .tlabel{font-size:12px;color:var(--muted);font-weight:600;margin-right:2px}
+.tool-btn{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r-sm);padding:6px 10px;font-size:12.5px;font-weight:600;color:var(--ink2)}
+.tool-btn:hover{border-color:#c7ccd3;background:#f7f9fb}
+.tool-btn[aria-pressed="true"]{background:var(--accent-dim);border-color:var(--accent-line);color:var(--accent-800)}
+.tool-btn:focus-visible{box-shadow:var(--focus)}
+/* small variant — the page prev/next arrows read as secondary nav, not mode buttons */
+.tool-btn.sm{padding:4px 9px;font-size:13px;line-height:1;min-width:30px;justify-content:center}
+
+/* the faux PDF page */
+.pageframe{
+  border:1px solid var(--line);border-radius:var(--r-md);background:#fff;box-shadow:var(--sh-1);
+  padding:0;overflow:hidden;
+}
+.pagecanvas{
+  position:relative;background:
+    /* faint baseline grid so it reads as a page, no external image */
+    linear-gradient(#fff 0 0);
+  padding:34px 38px 56px;min-height:560px;
+}
+.pagecanvas.scanmode{background:#f6f4ef}   /* a "scan" tint for OCR mode */
+.doc-h{font-size:14px;font-weight:700;color:var(--ink);text-align:center;margin-bottom:4px;letter-spacing:.2px}
+.doc-sub{font-size:11.5px;color:var(--muted);text-align:center;margin-bottom:18px}
+.doc-p{font-size:12.5px;line-height:1.95;color:#2b2f36;margin-bottom:12px;text-align:justify}
+.doc-foot{position:absolute;left:38px;right:38px;bottom:14px;display:flex;justify-content:space-between;
+  font-size:10.5px;color:var(--muted2);font-family:var(--mono);border-top:1px solid var(--line2);padding-top:6px}
+
+/* a highlight over detected text (inline span) */
+.hl{
+  border-radius:3px;padding:0 1px;cursor:pointer;position:relative;
+  box-shadow:inset 0 -2px 0 0 var(--edge,var(--amber));
+  background:var(--fill,var(--hl-review));
+  outline-offset:1px;
+}
+.hl:hover{filter:brightness(.97)}
+.hl:focus-visible{box-shadow:var(--focus)}
+.hl.ready{--fill:var(--hl-ready);--edge:var(--hl-ready-edge)}
+.hl.review{--fill:var(--hl-review);--edge:var(--hl-review-edge)}
+.hl.rejected{--fill:var(--hl-rejected);--edge:var(--hl-rejected-edge);text-decoration:line-through;color:var(--muted)}
+.hl.manual{--fill:var(--hl-manual);--edge:var(--hl-manual-edge)}
+.hl.priv{--fill:var(--hl-priv);--edge:var(--hl-priv-edge);cursor:default}
+.hl.active{box-shadow:0 0 0 2px var(--edge), inset 0 -2px 0 0 var(--edge)}
+.hl .tagbadge{
+  position:absolute;top:-13px;left:-2px;font-size:11px;font-weight:700;line-height:1;
+  background:var(--edge);color:#fff;border-radius:3px;padding:1px 4px;
+  opacity:0;transition:opacity .1s;pointer-events:none;
+}
+.hl.active .tagbadge,.hl:hover .tagbadge{opacity:1}
+
+/* preview legend (what the colors mean) */
+.preview-legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:10px;font-size:12px;color:var(--muted)}
+.preview-legend .lg{display:inline-flex;align-items:center;gap:6px}
+.preview-legend .sw{width:13px;height:13px;border-radius:3px;flex:none;box-shadow:inset 0 -2px 0 0 var(--edge)}
+.preview-legend .sw.ready{background:var(--hl-ready);--edge:var(--hl-ready-edge)}
+.preview-legend .sw.review{background:var(--hl-review);--edge:var(--hl-review-edge)}
+.preview-legend .sw.manual{background:var(--hl-manual);--edge:var(--hl-manual-edge)}
+.preview-legend .sw.priv{background:var(--hl-priv);--edge:var(--hl-priv-edge)}
+.preview-legend .sw.rejected{background:var(--hl-rejected);--edge:var(--hl-rejected-edge)}
+
+/* a highlight whose value is being PREVIEWED as redacted (live, in-place).
+   The original text is swapped for its marker/label and the fill turns muted. */
+.hl.redacted-preview{
+  --fill:rgba(154,161,171,.22);--edge:var(--muted);
+  text-decoration:none;color:var(--muted);font-family:var(--mono);
+}
+.hl.redacted-preview .tagbadge{display:none}
+.hl .hlmark{font-family:var(--mono);font-weight:600;color:var(--accent-800)}
+
+/* ADD-A-REDACTION panel (find-and-replace style, non-technical) */
+.add-redaction .ar-head{display:flex;gap:11px;align-items:flex-start}
+.add-redaction .ar-head .ic{font-size:18px;color:var(--accent);line-height:1.2;flex:none}
+.add-redaction .ar-head b{font-size:14px;color:var(--ink2)}
+.ar-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:7px}
+.ar-row .text-input{flex:1;min-width:180px}
+.ar-steps{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;
+  font-size:13px;color:var(--ink2)}
+.ar-steps li b:first-child{color:var(--accent);margin-right:4px}
+
+/* lightweight POPOVER / MODAL (flagged passage explainer — stays on this page) */
+.modal-overlay{
+  position:fixed;inset:0;z-index:80;background:rgba(20,26,40,.34);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+.modal-overlay.hidden{display:none}
+.modal{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--sh-2);width:100%;max-width:480px;padding:18px 20px;
+  max-height:88vh;overflow:auto;
+}
+.modal .mh{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.modal .mh .ic{font-size:20px;color:var(--purple);line-height:1;flex:none}
+.modal .mh h3{font-size:var(--fs-md);color:var(--purple)}
+.modal .mh .mx{margin-left:auto;background:transparent;border:1px solid var(--line);color:var(--muted);
+  border-radius:6px;padding:3px 9px;font-size:13px;cursor:pointer;flex:none}
+.modal .mh .mx:hover{background:var(--line2);color:var(--ink2)}
+.modal .mbody{font-size:13px;color:var(--ink2);line-height:1.55}
+.modal .mquote{background:var(--purple-bg);border:1px solid var(--purple-line);border-radius:8px;
+  padding:10px 12px;margin:10px 0;font-size:12.8px;color:#4f2d78;line-height:1.55}
+.modal .mquote mark{background:#e7d6fb;color:#3d2461;border-radius:2px;padding:0 1px}
+.modal .mwhy{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0}
+.modal .macts{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px;align-items:center}
+
+/* IMAGE / scanned-document redaction demo (true pixel removal under a black box) */
+.scanwrap{display:grid;grid-template-columns:minmax(300px,1fr) minmax(260px,360px);gap:var(--s4);align-items:start}
+@media (max-width:980px){.scanwrap{grid-template-columns:1fr}}
+.scanframe{border:1px solid var(--line);border-radius:var(--r-md);background:#efece5;box-shadow:var(--sh-1);
+  padding:0;overflow:hidden;position:sticky;top:calc(97px + var(--stepper-h) + 4px)}
+@media (max-width:980px){.scanframe{position:static}}
+.scanpage{
+  position:relative;background:
+    /* faint horizontal "scan lines" so it reads as a page image — no external image */
+    repeating-linear-gradient(#fbfaf6 0 5px,#f4f2ec 5px 6px);
+  padding:30px 32px 46px;min-height:480px;
+}
+.scan-h{font-size:14px;font-weight:700;color:#33312c;text-align:center;letter-spacing:.3px;margin-bottom:3px;
+  font-family:Georgia,"Times New Roman",serif}
+.scan-sub{font-size:11px;color:#8a877f;text-align:center;margin-bottom:18px;font-family:Georgia,serif}
+.scan-line{font-family:Georgia,"Times New Roman",serif;font-size:12.5px;color:#3a382f;line-height:2.1;
+  position:relative;white-space:pre-wrap}
+/* a detected item on the scanned page: a black box that DELETES the pixels under it.
+   When 'kept', the original text is gone (true removal); the box is opaque, not see-through. */
+.scanbox{position:relative;display:inline-block;cursor:pointer;border-radius:2px}
+.scanbox .under{visibility:visible}
+.scanbox.removed .under{visibility:hidden}              /* the pixels are GONE in the saved raster */
+.scanbox.removed::after{
+  content:"";position:absolute;inset:-1px -2px;background:#15171b;border-radius:2px;
+}
+.scanbox:not(.removed){box-shadow:inset 0 -2px 0 0 var(--amber);background:var(--hl-review)}
+.scanbox:focus-visible{box-shadow:var(--focus)}
+.scanbox.active:not(.removed){box-shadow:0 0 0 2px var(--amber)}
+.scanbox.active.removed::after{box-shadow:0 0 0 2px var(--accent)}
+/* the per-box review list beside the scan */
+.scanlist{display:flex;flex-direction:column;gap:8px}
+.scanitem{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:9px;
+  padding:9px 11px;background:#fff}
+.scanitem.active{border-color:var(--accent);box-shadow:var(--focus)}
+.scanitem .meta{flex:1;min-width:0}
+.scanitem .meta .v{font-family:var(--mono);font-size:12.5px;color:var(--ink);word-break:break-all}
+.scanitem .meta .ctx{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* findings pane: search + filters + list */
+.findings-controls{display:flex;flex-direction:column;gap:9px;margin-bottom:12px}
+.searchbox{position:relative}
+.searchbox .ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted2);font-size:14px}
+.searchbox input{padding-left:32px}
+.filterrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.selectish{position:relative;display:inline-flex;align-items:center}
+.selectish select{
+  font:inherit;font-size:12.5px;font-weight:600;color:var(--ink2);
+  background:var(--card2);border:1px solid var(--line);border-radius:var(--r-sm);
+  padding:6px 26px 6px 10px;appearance:none;cursor:pointer;
+}
+.selectish::after{content:"\25BE";position:absolute;right:9px;font-size:9px;color:var(--muted2);pointer-events:none}
+.selectish select:focus-visible{box-shadow:var(--focus);border-color:var(--accent);outline:none}
+.filterchips{display:flex;gap:6px;flex-wrap:wrap}
+.fchip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;
+  background:var(--card2);border:1px solid var(--line);border-radius:var(--r-pill);padding:4px 10px;color:var(--ink2)}
+.fchip[aria-pressed="true"]{background:var(--accent-dim);border-color:var(--accent-line);color:var(--accent-800)}
+.fchip:hover{border-color:#c7ccd3}
+.fchip:focus-visible{box-shadow:var(--focus);outline:none}
+
+/* the prominent unresolved-count strip */
+.unresolved-bar{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--amber-bg);border:1px solid var(--amber-line);border-radius:var(--r-md);
+  padding:11px 14px;margin-bottom:12px;
+}
+.unresolved-bar.clear{background:var(--green-bg);border-color:var(--green-line)}
+.unresolved-bar .big{font-size:var(--fs-xl);font-weight:700;color:var(--amber);line-height:1;flex:none}
+.unresolved-bar.clear .big{color:var(--green)}
+.unresolved-bar .ub-txt{flex:1;min-width:140px}
+.unresolved-bar .ub-txt b{color:var(--ink2)}
+.unresolved-bar .ub-txt .s{font-size:12.5px;color:var(--muted)}
+
+.findings-list{display:flex;flex-direction:column}
+.tier{margin-bottom:var(--s5)}
+.tier-h{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tier-h .left{display:flex;align-items:center;gap:9px}
+.tier-h h3{font-size:14px}
+.tier-h .marker{width:10px;height:10px;border-radius:50%;flex:none}
+.tier-h .marker.ready{background:var(--green)} .tier-h .marker.todo{background:var(--amber)}
+.tier-actions{display:flex;gap:4px}
+.tier-desc{color:var(--muted);font-size:12.5px;margin:5px 0 10px}
+.tier-prog{display:flex;align-items:center;gap:10px;margin:2px 0 12px}
+.tier-prog .progress{flex:1;margin:0}
+.tier-prog .lab{color:var(--muted);font-size:var(--fs-xs);white-space:nowrap;font-weight:600}
+.status-pill{font-size:11px;font-weight:700;border-radius:var(--r-pill);padding:1px 8px;border:1px solid transparent;white-space:nowrap}
+.status-pill.accepted{background:var(--green-bg);color:var(--green);border-color:var(--green-line)}
+.status-pill.unresolved{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-line)}
+.status-pill.rejected{background:var(--line2);color:var(--muted);border-color:#dce2ea}
+
+/* manual-add card sitting in the findings list */
+.add-manual{display:flex;align-items:center;gap:10px;border:1px dashed var(--accent-line);background:var(--accent-dim);
+  border-radius:9px;padding:11px 13px;margin-bottom:14px}
+.add-manual .ic{font-size:18px;color:var(--accent)}
+.add-manual .t{flex:1;min-width:0}
+.add-manual .t b{font-size:13.5px;color:var(--accent-800)}
+.add-manual .t .s{font-size:12.5px;color:#2c4a86}
+
+/* ==========================================================================
+   8. NEW — STAGE 5 export
+   ========================================================================== */
+.checklist{display:flex;flex-direction:column;gap:9px}
+.cl-item{display:flex;gap:11px;align-items:flex-start;border:1px solid var(--line);border-radius:9px;padding:11px 13px;background:#fff}
+/* rounded SQUARE (not a circle) so these count/status marks don't read as
+   stepper step-numbers; the stepper badges are circular. */
+.cl-item .ci{flex:none;width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;margin-top:1px}
+.cl-item.ok .ci{background:var(--green-bg);color:var(--green);border:1px solid var(--green-line)}
+.cl-item.block .ci{background:var(--red-bg);color:var(--red);border:1px solid var(--red-line)}
+.cl-item.warn .ci{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-line)}
+.cl-item .clbody{flex:1;min-width:0}
+.cl-item .clbody b{font-size:13.5px;color:var(--ink2)}
+.cl-item .clbody p{font-size:12.5px;color:var(--muted);margin-top:2px}
+.cl-item .clact{flex:none;align-self:center}
+
+.dest-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.dest-path{flex:1;min-width:220px;font-family:var(--mono);font-size:12.5px;color:var(--ink2);
+  background:var(--card2);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 11px;word-break:break-all}
+
+/* before/after comparison */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:760px){.compare{grid-template-columns:1fr}}
+.compare-col{border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}
+.compare-col .ch{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:7px 11px;font-size:12px;font-weight:700;border-bottom:1px solid var(--line)}
+.compare-col.before .ch{background:var(--red-bg);color:var(--red)}
+.compare-col.after .ch{background:var(--green-bg);color:var(--green)}
+.compare-doc{padding:13px 15px;font-size:12px;line-height:1.9;color:#2b2f36;min-height:170px}
+.compare-doc .was{background:#ffe1de;color:#7a2820;border-radius:2px;padding:0 2px;font-family:var(--mono)}
+.compare-doc .now{background:var(--line2);color:var(--muted);border-radius:2px;padding:0 3px;font-family:var(--mono);font-weight:600}
+.compare-doc .nowlbl{font-family:var(--mono);font-size:11.5px;font-weight:600;background:var(--accent-dim);
+  color:var(--accent-800);border:1px solid var(--accent-line);border-radius:4px;padding:0 3px}
+
+/* the final processing / removal report (the trust artifact) */
+.report-card{border-color:var(--green-line)}
+.report-head{display:flex;gap:13px;align-items:flex-start;margin-bottom:6px}
+.report-head .ic{font-size:24px;color:var(--green);flex:none;line-height:1}
+.report-head b{color:var(--green);font-size:var(--fs-md)}
+.report-grid{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.rstat{flex:1;min-width:120px;border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--card2)}
+.rstat .n{font-size:var(--fs-xl);font-weight:700;color:var(--ink);line-height:1}
+.rstat .l{font-size:12px;color:var(--muted);margin-top:3px}
+.report-verify{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+.report-verify .v{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--ink2)}
+.report-verify .v .ck{color:var(--green);font-weight:700;flex:none}
+.report-verify .v.miss .ck{color:var(--amber)}
+.report-breakdown{display:flex;flex-direction:column;gap:4px;margin-top:10px}
+.bd-row{display:flex;align-items:center;gap:10px;font-size:12.5px;background:#fff;border:1px solid var(--line);
+  border-radius:7px;padding:6px 11px}
+.bd-row .bt{flex:1;color:var(--ink2)}
+.bd-row .bn{font-weight:700;color:var(--ink);font-family:var(--mono)}
+.bd-row.miss{background:var(--amber-bg);border-color:var(--amber-line)}
+.bd-row.miss .bt,.bd-row.miss .bn{color:var(--amber)}
+
+/* helpers */
+.hidden{display:none !important}
+.mt0{margin-top:0}.mb0{margin-bottom:0}
+.aria-live-note{font-size:11.5px;color:var(--muted2);margin-top:6px}
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to main content</a>
+
+<!-- ====================================================================
+     DEMO CONTROL BAR  (NOT part of the product)
+     ==================================================================== -->
+<div class="demobar" role="region" aria-label="Design demo controls (not part of the product)">
+  <b>Lawbat reviewer · DEMO BAR</b>
+  <span class="tag">(not in the product) →</span>
+  <div class="grp">
+    <span class="lab">Stage:</span>
+    <button data-stage="document">1 Document</button>
+    <button data-stage="detection">2 Detection</button>
+    <button data-stage="review" class="on">3 Review</button>
+    <button data-stage="sensitive">4 Sensitive</button>
+    <button data-stage="export">5 Export</button>
+  </div>
+  <span class="sep"></span>
+  <div class="grp">
+    <span class="lab">States:</span>
+    <button data-demo="doc-empty">Doc: empty</button>
+    <button data-demo="doc-loaded" class="on">Doc: loaded</button>
+    <button data-demo="doc-scan">Doc: scanned-image warning</button>
+    <button data-demo="det-settings">Detection: settings</button>
+    <button data-demo="det-scanning">Detection: scanning…</button>
+    <button data-demo="review-text" class="on">Review: text document</button>
+    <button data-demo="review-pdf">Review: PDF document (list-only)</button>
+    <button data-demo="exp-blocked" class="on">Export: blocked</button>
+    <button data-demo="exp-ready">Export: ready</button>
+  </div>
+  <span class="sep"></span>
+  <div class="grp">
+    <span class="lab">Image path:</span>
+    <button data-demo="image-demo">Open scanned-image redaction</button>
+  </div>
+</div>
+
+<div class="synthetic-note">DESIGN MOCKUP — all names, identifiers and documents below are SYNTHETIC and invented. Not real matter data.</div>
+
+<!-- a11y: one shared live region announces cross-stage status to screen readers -->
+<div id="live" class="vh" role="status" aria-live="polite" aria-atomic="true">Stage 3 of 5, Review. 17 findings, 5 still to review.</div>
+
+<div class="app">
+
+  <!-- ===== SHARED TOPBAR ===== -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">L</div>
+      <div class="titles">
+        <h1>Redaction reviewer</h1>
+        <div class="sub" id="doc-sub">Asia-Pacific-SPA-draft.pdf · Project Heron</div>
+      </div>
+    </div>
+    <div class="actions">
+      <span class="chip ok" title="engine healthy">&#10003; Tool ready</span>
+      <a class="back" href="#">&larr; Home</a>
+    </div>
+  </div>
+
+  <!-- ===== PERSISTENT STEPPER (progress + gates) ===== -->
+  <nav class="stepper" aria-label="Redaction stages">
+    <ol id="stepper-ol">
+      <li class="step done" data-step="document">
+        <button class="btn-step" data-stage="document" aria-current="false">
+          <span class="num" aria-hidden="true">&#10003;</span>
+          <span class="stxt"><span class="t">Document</span><span class="s">SPA draft loaded</span></span>
+          <span class="donemark">Done</span>
+        </button>
+      </li>
+      <li class="conn" aria-hidden="true"></li>
+      <li class="step done" data-step="detection">
+        <button class="btn-step" data-stage="detection" aria-current="false">
+          <span class="num" aria-hidden="true">&#10003;</span>
+          <span class="stxt"><span class="t">Detection</span><span class="s">7 types · 3 names</span></span>
+          <span class="donemark">Done</span>
+        </button>
+      </li>
+      <li class="conn" aria-hidden="true"></li>
+      <li class="step current" data-step="review">
+        <button class="btn-step" data-stage="review" aria-current="step">
+          <span class="num" aria-hidden="true">3</span>
+          <span class="stxt"><span class="t">Review</span><span class="s">5 still to review</span></span>
+          <span class="gatemark">5 to do</span>
+        </button>
+      </li>
+      <li class="conn" aria-hidden="true"></li>
+      <li class="step gate" data-step="sensitive">
+        <button class="btn-step" data-stage="sensitive" aria-current="false">
+          <span class="num" aria-hidden="true">!</span>
+          <span class="stxt"><span class="t">Sensitive</span><span class="s">2 to acknowledge</span></span>
+          <span class="gatemark">Must review</span>
+        </button>
+      </li>
+      <li class="conn" aria-hidden="true"></li>
+      <li class="step locked" data-step="export">
+        <button class="btn-step" data-stage="export" aria-current="false" aria-disabled="true">
+          <span class="num" aria-hidden="true">&#128274;</span>
+          <span class="stxt"><span class="t">Export</span><span class="s">Locked until above are done</span></span>
+          <span class="lockmark">Locked</span>
+        </button>
+      </li>
+    </ol>
+  </nav>
+
+  <main id="main">
+
+  <!-- ================================================================
+       STAGE 1 — DOCUMENT (upload / paste)
+       ================================================================ -->
+  <section class="stage" id="stage-document" aria-labelledby="h-document">
+    <div class="wrap">
+      <h2 id="h-document" class="vh">Stage 1: Document</h2>
+
+      <!-- honest framing (slimmed, kept verbatim) -->
+      <div class="banner honest">
+        <span class="ic" aria-hidden="true">&#9888;</span>
+        <div class="body">
+          <b>This does a thorough first pass &mdash; it never makes a document &ldquo;safe to send&rdquo;.</b>
+          <p>It reliably finds common things like emails, phone numbers and ID numbers. It can
+            still miss things only a person would notice (for example, &ldquo;the only deal
+            closing this quarter&rdquo;). <b>Always read the result yourself before you rely on it.</b></p>
+        </div>
+      </div>
+
+      <div class="card hidden" id="doc-upload">
+        <div class="section-h"><h2>Start with your document</h2></div>
+        <p class="help mt0">Paste text below, or upload a file. Everything happens on this computer.</p>
+
+        <div class="field" style="margin-top:14px">
+          <label class="lbl" for="paste-area">Paste text</label>
+          <textarea id="paste-area" placeholder="Paste a contract, an email, or any text here…"></textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" data-stage="detection">Continue to detection settings</button>
+          <span class="orsep">or</span>
+          <label class="filebtn" tabindex="0" role="button">Upload a file
+            <input type="file" class="vh" aria-label="Upload a file to redact">
+          </label>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Drag a file here, or activate to choose a file">
+          <div class="ic" aria-hidden="true">&#128196;</div>
+          <div class="big">Drag a file here, or use &ldquo;Upload a file&rdquo;</div>
+          <p class="filetypes">We can read
+            <code>.pdf</code> <code>.docx</code> <code>.txt</code> <code>.csv</code>
+            <code>.eml</code> <code>.msg</code> <code>.md</code>.
+            PDFs keep their layout; other files have their text pulled out for review.</p>
+        </div>
+
+        <!-- scanned/image-PDF warning (toggled by the demo "Doc: scanned-PDF warning") -->
+        <div class="banner warn hidden" id="scan-warn" style="margin-top:14px;margin-bottom:0">
+          <span class="ic" aria-hidden="true">&#128247;</span>
+          <div class="body">
+            <b>This looks like a scan or photo &mdash; the words are part of the image.</b>
+            <p>&ldquo;<b>Asia-Pacific-SPA-signed.pdf</b>&rdquo; has no selectable text, so the normal
+              redaction can&rsquo;t reach the words inside it. We can read the page images instead and,
+              for each item you keep, <b>delete the pixels under a black box</b> &mdash; the words are
+              removed from the picture, not just covered. You&rsquo;ll check every box before anything is removed.</p>
+          </div>
+          <button class="btn primary" style="align-self:center" data-demo="image-demo">Read the images instead</button>
+        </div>
+      </div>
+
+      <!-- DOC READY — basic facts after load -->
+      <div class="card" id="doc-ready">
+        <div class="section-h"><h2>Your document is ready</h2><span class="chip ok">&#10003; Loaded</span></div>
+        <div class="filenote" style="margin-top:4px">
+          <b>Asia-Pacific-SPA-draft.pdf</b> &mdash; this is a born-digital PDF, so its text can be read and
+          redacted directly (the cleanest case).
+        </div>
+        <div class="report-grid" style="margin-top:14px">
+          <div class="rstat"><div class="n">18</div><div class="l">pages</div></div>
+          <div class="rstat"><div class="n">PDF</div><div class="l">file type · has text layer</div></div>
+          <div class="rstat"><div class="n">~9,400</div><div class="l">words extracted</div></div>
+          <div class="rstat"><div class="n">Project&nbsp;Heron</div><div class="l">matter (from folder)</div></div>
+        </div>
+        <div class="btn-row" style="margin-top:6px">
+          <button class="btn primary" data-stage="detection">Continue to detection settings &rarr;</button>
+          <span class="hint">Next you&rsquo;ll choose what to look for.</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <span class="f"><span class="dotmark"></span> <b>Tool ready</b></span>
+      <span class="f"><b>Local-only</b> — nothing leaves this computer</span>
+      <span class="f"><b>Rule-based</b> — no AI, no guessing</span>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       STAGE 2 — DETECTION (progressive-disclosure settings + scanning)
+       ================================================================ -->
+  <section class="stage" id="stage-detection" aria-labelledby="h-detection">
+    <div class="wrap">
+      <h2 id="h-detection" class="vh">Stage 2: Detection settings</h2>
+
+      <div class="banner honest">
+        <span class="ic" aria-hidden="true">&#9888;</span>
+        <div class="body">
+          <b>This does a thorough first pass.</b>
+          <p>It reliably finds common things like emails, phone numbers and ID numbers, plus the
+            names you list below. It can still miss things only a person would notice.
+            <b>Always read the result yourself before you rely on it.</b></p>
+        </div>
+      </div>
+
+      <!-- SCANNING progress (toggled by "Detection: scanning…") -->
+      <div class="card hidden" id="det-scanning">
+        <div class="working" role="status">
+          <span class="spinner" aria-hidden="true"></span>
+          <div>
+            <div><b>Scanning &ldquo;Asia-Pacific-SPA-draft.pdf&rdquo;…</b></div>
+            <div class="sub">Looking for emails, phone numbers, ID numbers and the names you listed.</div>
+            <div class="progress" style="width:360px;max-width:100%"><span style="width:62%"></span></div>
+          </div>
+        </div>
+        <p class="help" style="margin-top:14px">This usually takes a few seconds. Nothing leaves this computer.
+          Page 11 of 18.</p>
+      </div>
+
+      <!-- SETTINGS (default) -->
+      <div class="card" id="det-settings">
+        <div class="settings-summary">
+          <div class="what">
+            <div class="k">Right now Lawbat is looking for:</div>
+            <div class="lookfor">
+              <span class="chip neutral">Emails</span>
+              <span class="chip neutral">Phone numbers</span>
+              <span class="chip neutral">ID numbers</span>
+              <span class="chip neutral">Card numbers</span>
+              <span class="chip neutral">Web &amp; IP addresses</span>
+              <span class="chip accent">Singapore IDs (NRIC/UEN)</span>
+              <span class="chip accent">3 names you listed</span>
+            </div>
+          </div>
+        </div>
+
+        <details class="settings-more">
+          <summary aria-expanded="false">Change what to look for</summary>
+
+          <div class="optgrp">
+            <div class="gh"><label for="terms-area">Names &amp; words to always redact</label></div>
+            <p class="help mt0">The known names a scanner can&rsquo;t guess &mdash; directors,
+              the other side, deal codenames, matter numbers (one per line). Each is removed
+              everywhere it appears. <b>This is the reliable way to redact people you already know.</b></p>
+            <textarea class="short" id="terms-area" style="margin-top:8px"
+              placeholder="Jefferson Tan&#10;Alexander Wong&#10;Northwind Holdings (Pte) Ltd">Jefferson Tan
+Alexander Wong
+Northwind Holdings (Pte) Ltd</textarea>
+            <p class="help">3 names will be removed everywhere they appear.</p>
+          </div>
+
+          <div class="optgrp">
+            <div class="gh">Countries you work in</div>
+            <p class="help mt0">Turn on a country to also catch its national ID numbers.</p>
+            <div class="pillset" style="margin-top:9px">
+              <label class="pill-opt"><input type="checkbox" checked><span class="tick"></span><span class="lbltxt">Singapore</span></label>
+              <label class="pill-opt"><input type="checkbox"><span class="tick"></span><span class="lbltxt">United States</span></label>
+              <label class="pill-opt"><input type="checkbox"><span class="tick"></span><span class="lbltxt">United Kingdom</span></label>
+              <label class="pill-opt"><input type="checkbox"><span class="tick"></span><span class="lbltxt">Australia</span></label>
+              <label class="pill-opt"><input type="checkbox"><span class="tick"></span><span class="lbltxt">Canada</span></label>
+            </div>
+          </div>
+
+          <div class="optgrp">
+            <div class="gh">Types of information</div>
+            <p class="help mt0">All on for the most thorough scan. Turn one off only if it&rsquo;s
+              pure noise in your document.</p>
+            <div class="opt-grid">
+              <label class="check"><input type="checkbox" checked><span class="box"></span> Emails</label>
+              <label class="check"><input type="checkbox" checked><span class="box"></span> Phone numbers</label>
+              <label class="check"><input type="checkbox" checked><span class="box"></span> ID numbers</label>
+              <label class="check"><input type="checkbox" checked><span class="box"></span> Names <span class="hint" style="margin-left:2px">(best-guess)</span></label>
+              <label class="check"><input type="checkbox" checked><span class="box"></span> Card numbers</label>
+              <label class="check"><input type="checkbox" checked><span class="box"></span> Bank (IBAN)</label>
+              <label class="check"><input type="checkbox" checked><span class="box"></span> Web &amp; IP addresses</label>
+            </div>
+          </div>
+
+          <div class="optgrp">
+            <div class="gh">Extra checks</div>
+            <div style="display:flex;flex-direction:column;gap:11px;margin-top:8px">
+              <div>
+                <label class="switch"><input type="checkbox"><span class="track"></span> Also catch dates of birth &amp; account numbers near a label</label>
+                <p class="help warn">Finds more, but flags more to review.</p>
+              </div>
+              <div>
+                <label class="switch"><input type="checkbox"><span class="track"></span> Also catch company identifiers (LEI codes)</label>
+                <p class="help">Off by default &mdash; a public LEI is borderline personal data, so it&rsquo;s your call.</p>
+              </div>
+              <div>
+                <label class="switch"><input type="checkbox"><span class="track"></span> Payment-card compliance (PCI) &mdash; force card detection on</label>
+                <p class="help">Card-holder names and free-text account notes still need your eye.</p>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <div class="divider"></div>
+        <div class="btn-row">
+          <button class="btn primary" data-demo="det-scanning">Scan this document</button>
+          <button class="btn ghost" data-stage="review">See results &rarr;</button>
+          <span class="hint">Rule-based &mdash; the same input always finds the same things.</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <span class="f"><span class="dotmark"></span> <b>Tool ready</b></span>
+      <span class="f"><b>Local-only</b> — nothing leaves this computer</span>
+      <span class="f"><b>Rule-based</b> — no AI, no guessing</span>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       STAGE 3 — REVIEW (two-pane: document preview + findings) — CENTERPIECE
+       ================================================================ -->
+  <section class="stage show" id="stage-review" aria-labelledby="h-review">
+    <div class="wrap wide">
+      <h2 id="h-review" class="vh">Stage 3: Review findings</h2>
+
+      <div class="banner honest">
+        <span class="ic" aria-hidden="true">&#9888;</span>
+        <div class="body">
+          <b>This does a thorough first pass.</b>
+          <p>Detection is rule-based &mdash; no AI guessing &mdash; so it can miss things a person would
+            catch. Use <b>Add a redaction</b> on the page for anything it missed, and remove any wrong
+            match. You decide what&rsquo;s removed.</p>
+        </div>
+      </div>
+
+      <div class="review2">
+
+        <!-- ============ LEFT: DOCUMENT PREVIEW ============
+             SCOPE (locked): the on-page preview is TEXT-ONLY. A text document shows a
+             live, in-place preview with highlights; ticking a finding replaces the value
+             with its marker/label LIVE. A PDF document shows a LIST-ONLY note instead —
+             there is NO faux PDF page canvas (the engine has no PDF visual-coordinate map). -->
+        <div class="preview-pane">
+          <div class="preview-head">
+            <h2>Document preview</h2>
+            <span class="chip neutral" id="preview-kind">Text document</span>
+          </div>
+
+          <!-- live-preview affordance note (text path only): the document below shows the
+               ORIGINAL words; ticking a finding redacts it in place. Hidden for a PDF. -->
+          <div class="preview-note" id="preview-live-note">
+            <span class="ic" aria-hidden="true">&#9998;</span>
+            <span>This shows the <b>original</b> words. <b>Tick a finding</b> in the list (or click a
+              highlight) to see it redacted right here &mdash; untick to bring it back.</span>
+          </div>
+
+          <!-- ===== TEXT-DOCUMENT preview: live, in-place, with highlights ===== -->
+          <div id="pv-text" class="pageframe">
+            <div class="pagecanvas" id="text-canvas"
+                 style="min-height:auto;padding:22px 26px;font-size:13px;line-height:2.0">
+              <div class="doc-h" style="text-align:left;margin-bottom:2px">SALE AND PURCHASE AGREEMENT</div>
+              <div class="doc-sub" style="text-align:left;margin-bottom:16px">Project Heron · Draft 4 · text pulled from the file</div>
+
+              <p class="doc-p" style="text-align:left">This Sale and Purchase Agreement is made between
+                <span class="hl ready" data-fid="f1" data-mark="[A]" tabindex="0" role="button"
+                  aria-label="Finding: name you listed, Jefferson Tan, ready to confirm. Activate to open it in the findings list."><span class="tagbadge">NAME</span><span class="hlval">Jefferson&nbsp;Tan</span></span>,
+                acting as director of
+                <span class="hl ready" data-fid="f2" data-mark="[B]" tabindex="0" role="button"
+                  aria-label="Finding: company name you listed, Northwind Holdings, ready to confirm."><span class="tagbadge">NAME</span><span class="hlval">Northwind&nbsp;Holdings&nbsp;(Pte)&nbsp;Ltd</span></span>
+                (the &ldquo;Seller&rdquo;), and the Buyer.</p>
+
+              <p class="doc-p" style="text-align:left">Correspondence to the Seller shall be directed to
+                <span class="hl ready" data-fid="f3" data-mark="[email]" tabindex="0" role="button"
+                  aria-label="Finding: email, ready to confirm."><span class="tagbadge">EMAIL</span><span class="hlval">jefferson.tan@northwind-holdings.example</span></span>
+                or by telephone on
+                <span class="hl review" data-fid="f4" data-mark="[phone]" tabindex="0" role="button"
+                  aria-label="Finding: phone number, less sure, please review."><span class="tagbadge">PHONE?</span><span class="hlval">+65&nbsp;6555&nbsp;0142</span></span>.
+                The Guarantor (NRIC
+                <span class="hl ready" data-fid="f5" data-mark="[Singapore ID]" tabindex="0" role="button"
+                  aria-label="Finding: Singapore ID, S1234567D, ready to confirm."><span class="tagbadge">NRIC</span><span class="hlval">S1234567D</span></span>)
+                hereby undertakes to discharge the obligations herein.</p>
+
+              <p class="doc-p" style="text-align:left">Payment of the Escrow Amount shall be made to Account No.&nbsp;<!--
+                --><span class="hl review" data-fid="f6" data-mark="[account]" tabindex="0" role="button"
+                  aria-label="Finding: account number near a label, 001-904412-330, less sure, please review. Tick it in the list to preview the redaction here."><span class="tagbadge">ACCT?</span><span class="hlval">001-904412-330</span></span>
+                held with the Escrow Agent. This Agreement, countersigned by
+                <span class="hl review" data-fid="f7" data-mark="[C]" tabindex="0" role="button"
+                  aria-label="Finding: best-guess name, Helena Vasquez, less sure, please review."><span class="tagbadge">NAME?</span><span class="hlval">Helena&nbsp;Vasquez</span></span>
+                as witness, takes effect on the Completion Date.</p>
+
+              <!-- a flagged sensitive passage shown in-place; clicking it opens a POPOVER
+                   on THIS page (it does NOT navigate to another stage). -->
+              <p class="doc-p" style="text-align:left"><span class="hl priv" data-pid="p1" tabindex="0" role="button"
+                aria-haspopup="dialog" aria-label="Flagged sensitive passage: looks privileged. Not removed automatically. Activate to see why it is flagged."><span class="tagbadge">FLAGGED</span>Per legal advice from our external counsel, and strictly without prejudice, the Seller is prepared to accept a reduced indemnity cap should the Buyer waive the disputed earn-out clause.</span></p>
+
+              <p class="doc-p" style="text-align:left">Each party confirms it has obtained independent advice. The reference for
+                this counterpart is
+                <span class="hl rejected" data-fid="f8" tabindex="0" role="button"
+                  aria-label="Finding: reference number, you removed this from the list (kept in document)."><span class="tagbadge">REF</span><span class="hlval">NW-0426-5414319-3</span></span>
+                (left in &mdash; you marked it not personal).</p>
+
+              <!-- a manually-added 'hide everywhere' term, shown highlighted in-place -->
+              <p class="doc-p" style="text-align:left">The board noted this is
+                <span class="hl manual" data-fid="fm1" data-mark="[REDACTED]" tabindex="0" role="button"
+                  aria-label="You added this: the only deal closing this quarter. Tick it in the list to preview the redaction.">the only deal closing this quarter</span>
+                and asked that it stay internal.</p>
+            </div>
+          </div>
+
+          <!-- ===== PDF-DOCUMENT: LIST-ONLY (no page canvas — engine has no PDF coordinate map) ===== -->
+          <div id="pv-pdf-note" class="pageframe hidden" style="padding:0">
+            <div class="empty" style="border:0;text-align:left;padding:22px 24px">
+              <div class="ic" aria-hidden="true">&#128203;</div>
+              <b>PDF review is done from the findings list</b>
+              <p style="margin-top:4px">A PDF keeps its original page layout, so Lawbat reviews it as a
+                <b>list of findings</b> rather than an on-page preview. Each item still shows the surrounding
+                words so you can judge it. When you save, matched text is <b>removed from the file itself</b>
+                (true byte-removal, not a cover) &mdash; and for a scanned PDF the page image is processed so
+                detected items are deleted from the picture too. Use the list on the right.</p>
+            </div>
+          </div>
+
+          <!-- ADD A REDACTION — non-technical, find-and-replace style. PRIMARY = type a word
+               to hide everywhere (maps to the engine's reliable TERMS feature). SECONDARY =
+               select text in the preview, then 'Hide this'. No region / draw / span language. -->
+          <div class="card add-redaction" style="margin-top:14px">
+            <div class="ar-head">
+              <span class="ic" aria-hidden="true">&#10133;</span>
+              <div><b>Add a redaction</b>
+                <p class="help mt0">For a name or word the scan missed &mdash; you decide what&rsquo;s removed.</p></div>
+            </div>
+
+            <label class="lbl" for="hide-everywhere" style="margin-top:12px">Type a word or name to hide everywhere</label>
+            <div class="ar-row">
+              <input class="text-input" id="hide-everywhere" type="text"
+                placeholder="e.g. a director&rsquo;s name, a deal codename, a reference">
+              <button class="btn primary" id="hide-everywhere-btn">Hide everywhere</button>
+            </div>
+            <p class="help" id="hide-everywhere-hint">Every exact match is removed throughout the document.
+              The tool matches text exactly &mdash; no AI, no guessing.</p>
+
+            <div class="divider"></div>
+
+            <div class="lbl" style="margin-bottom:4px">Or hide something you can see in the preview</div>
+            <ol class="ar-steps">
+              <li><b>1.</b> Select the text in the document preview above.</li>
+              <li><b>2.</b> Click <b>Hide this</b> &mdash; it&rsquo;s added to the list on the right.</li>
+            </ol>
+            <div class="btn-row" style="margin-top:8px">
+              <button class="btn ghost" id="hide-this-btn">Hide this</button>
+              <span class="hint" id="hide-this-hint">Select text in the preview first.</span>
+            </div>
+          </div>
+
+          <!-- legend for the preview highlight colours -->
+          <div class="preview-legend" role="img" aria-label="Highlight colours: green = ready to confirm, amber = please review, blue = you added, purple = flagged sensitive passage, grey strikethrough = you removed from the list">
+            <span class="lg"><span class="sw ready"></span> Ready to confirm</span>
+            <span class="lg"><span class="sw review"></span> Please review</span>
+            <span class="lg"><span class="sw manual"></span> You added</span>
+            <span class="lg"><span class="sw priv"></span> Flagged passage</span>
+            <span class="lg"><span class="sw rejected"></span> Removed from list</span>
+          </div>
+        </div>
+
+        <!-- ============ RIGHT: FINDINGS list (search / filter / sort / tiers) ============ -->
+        <div class="findings-pane">
+
+          <!-- prominent UNRESOLVED count strip -->
+          <div class="unresolved-bar" id="unresolved-bar" role="status">
+            <span class="big" id="unresolved-n">5</span>
+            <div class="ub-txt">
+              <b>items still to review</b>
+              <div class="s">12 ready &middot; 5 to review &middot; 17 found in this document. Address the
+                amber ones to unlock Export.</div>
+            </div>
+          </div>
+
+          <!-- search + filters + sort -->
+          <div class="findings-controls">
+            <div class="searchbox">
+              <span class="ic" aria-hidden="true">&#128269;</span>
+              <label class="vh" for="finding-search">Search findings</label>
+              <input class="text-input" id="finding-search" type="search"
+                placeholder="Search findings (value, type, page…)">
+            </div>
+            <div class="filterrow">
+              <div class="selectish">
+                <label class="vh" for="filter-type">Filter by type</label>
+                <select id="filter-type">
+                  <option>All types</option>
+                  <option>Emails</option><option>Phone numbers</option>
+                  <option>ID numbers</option><option>Names</option>
+                  <option>Card numbers</option><option>Reference numbers</option>
+                </select>
+              </div>
+              <div class="selectish">
+                <label class="vh" for="sort-by">Sort findings</label>
+                <select id="sort-by">
+                  <option>Sort: document order</option>
+                  <option>Sort: needs review first</option>
+                  <option>Sort: by type</option>
+                  <option>Sort: by confidence</option>
+                </select>
+              </div>
+            </div>
+            <div class="filterchips" role="group" aria-label="Filter by status">
+              <button class="fchip" aria-pressed="true">All <span class="chip count neutral" style="padding:1px 6px">17</span></button>
+              <button class="fchip" aria-pressed="false">Unresolved <span class="chip count med" style="padding:1px 6px">5</span></button>
+              <button class="fchip" aria-pressed="false">Accepted <span class="chip count ok" style="padding:1px 6px">11</span></button>
+              <button class="fchip" aria-pressed="false">Removed <span class="chip count neutral" style="padding:1px 6px">1</span></button>
+            </div>
+          </div>
+
+          <!-- ADD-MANUAL affordance — points to the find-and-replace "Add a redaction" panel -->
+          <div class="add-manual">
+            <span class="ic" aria-hidden="true">&#10133;</span>
+            <div class="t">
+              <b>Missed something?</b>
+              <div class="s">Type a word or name to <b>hide everywhere</b> &mdash; use <b>Add a redaction</b> on the left.</div>
+            </div>
+            <button class="btn ghost sm" id="focus-add-redaction">Add a redaction</button>
+          </div>
+
+          <div class="findings-list" role="list" aria-label="Detected findings">
+
+            <!-- READY TO CONFIRM tier (pre-checked) -->
+            <div class="tier">
+              <div class="tier-h">
+                <div class="left">
+                  <span class="marker ready" aria-hidden="true"></span>
+                  <h3>Ready to confirm</h3>
+                  <span class="chip count ok">12</span>
+                </div>
+                <div class="tier-actions">
+                  <button class="linkbtn">Select all</button>
+                  <button class="linkbtn">Clear</button>
+                </div>
+              </div>
+              <p class="tier-desc">We&rsquo;re confident about these (valid ID numbers, the names you
+                listed). They&rsquo;re ticked &mdash; glance, then keep.</p>
+              <div class="tier-prog">
+                <div class="progress green"><span style="width:100%"></span></div>
+                <span class="lab">12 of 12 selected</span>
+              </div>
+
+              <div class="cand sel" data-fid="f1" role="listitem">
+                <label class="check"><input type="checkbox" checked aria-label="Redact: name you listed, Jefferson Tan"><span class="box"></span></label>
+                <div class="meta">
+                  <div class="chips"><span class="chip neutral">Name you listed</span><span class="chip ok">Confident</span><span class="status-pill accepted">Will redact</span></div>
+                  <div class="val">Jefferson Tan</div>
+                  <div class="ctx">…made between <mark>Jefferson Tan</mark>, acting as director of…</div>
+                  <span class="loc" data-fid="f1">&#128205; p.3 · top &mdash; show on page</span>
+                  <div class="rowacts">
+                    <button class="linkbtn">Remove from list (false match)</button>
+                    <button class="linkbtn">Edit span</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="cand" data-fid="f3" role="listitem">
+                <label class="check"><input type="checkbox" checked aria-label="Redact: email"><span class="box"></span></label>
+                <div class="meta">
+                  <div class="chips"><span class="chip neutral">Email</span><span class="chip ok">Confident</span><span class="status-pill accepted">Will redact</span></div>
+                  <div class="val">jefferson.tan@northwind-holdings.example</div>
+                  <div class="ctx">…shall be directed to <mark>jefferson.tan@northwind-holdings.example</mark> or by…</div>
+                  <span class="loc" data-fid="f3">&#128205; p.3 · middle &mdash; show on page</span>
+                  <div class="rowacts">
+                    <button class="linkbtn">Remove from list (false match)</button>
+                    <button class="linkbtn">Edit span</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="cand" data-fid="f5" role="listitem">
+                <label class="check"><input type="checkbox" checked aria-label="Redact: Singapore ID S1234567D"><span class="box"></span></label>
+                <div class="meta">
+                  <div class="chips"><span class="chip neutral">Singapore ID</span><span class="chip ok">Confident</span><span class="status-pill accepted">Will redact</span></div>
+                  <div class="val">S1234567D</div>
+                  <div class="ctx">…the Guarantor (NRIC <mark>S1234567D</mark>) hereby undertakes…</div>
+                  <span class="loc" data-fid="f5">&#128205; p.3 · middle &mdash; show on page</span>
+                  <div class="rowacts">
+                    <button class="linkbtn">Remove from list (false match)</button>
+                    <button class="linkbtn">Edit span</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- a manually-ADDED finding lives here too, marked as user-added -->
+              <div class="cand" data-fid="fm1" role="listitem">
+                <label class="check"><input type="checkbox" checked aria-label="Redact: you added this"><span class="box"></span></label>
+                <div class="meta">
+                  <div class="chips"><span class="chip accent">You added</span><span class="status-pill accepted">Will redact</span></div>
+                  <div class="val">the only deal closing this quarter</div>
+                  <div class="ctx">…a detail only a person would notice — you selected it on the page.</div>
+                  <span class="loc" data-fid="fm1">&#128205; p.7 · paragraph 2 &mdash; show on page</span>
+                  <div class="rowacts">
+                    <button class="linkbtn">Edit span</button>
+                    <button class="linkbtn">Delete this redaction</button>
+                  </div>
+                </div>
+              </div>
+
+              <p class="hint" style="margin:2px 0 0 4px">…and 8 more confident items (reference footers grouped).</p>
+            </div>
+
+            <!-- PLEASE REVIEW tier (NOT pre-checked) -->
+            <div class="tier">
+              <div class="tier-h">
+                <div class="left">
+                  <span class="marker todo" aria-hidden="true"></span>
+                  <h3>Please review</h3>
+                  <span class="chip count med">5</span>
+                </div>
+                <div class="tier-actions">
+                  <button class="linkbtn">Select all</button>
+                  <button class="linkbtn">Clear</button>
+                </div>
+              </div>
+              <p class="tier-desc">We&rsquo;re less sure about these &mdash; they&rsquo;re <b>not</b> ticked.
+                Decide each one. <b>These 5 are what&rsquo;s left to do.</b></p>
+              <div class="tier-prog">
+                <div class="progress amber"><span style="width:0%"></span></div>
+                <span class="lab">0 of 5 decided</span>
+              </div>
+
+              <div class="cand" data-fid="f4" role="listitem">
+                <label class="check"><input type="checkbox" aria-label="Redact: phone number, please review"><span class="box"></span></label>
+                <div class="meta">
+                  <div class="chips"><span class="chip neutral">Phone (maybe)</span><span class="chip med">Less sure</span><span class="status-pill unresolved">To review</span></div>
+                  <div class="val">+65 6555 0142</div>
+                  <div class="ctx">…by telephone on <mark>+65 6555 0142</mark>. The Guarantor…</div>
+                  <span class="loc" data-fid="f4">&#128205; p.3 · middle &mdash; show on page</span>
+                  <div class="rowacts">
+                    <button class="linkbtn">Keep (redact)</button>
+                    <button class="linkbtn">Remove from list</button>
+                    <button class="linkbtn">Edit span</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="cand" data-fid="f6" role="listitem">
+                <label class="check"><input type="checkbox" aria-label="Redact: account number, please review"><span class="box"></span></label>
+                <div class="meta">
+                  <div class="chips"><span class="chip neutral">Account number (near a label)</span><span class="chip med">Less sure</span><span class="status-pill unresolved">To review</span></div>
+                  <div class="val">001-904412-330</div>
+                  <div class="ctx">…to <mark>Account No. 001-904412-330</mark> held with the Escrow Agent…</div>
+                  <span class="loc" data-fid="f6">&#128205; p.3 · lower &mdash; show on page</span>
+                  <div class="rowacts">
+                    <button class="linkbtn">Keep (redact)</button>
+                    <button class="linkbtn">Remove from list</button>
+                    <button class="linkbtn">Edit span</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="cand" data-fid="f7" role="listitem">
+                <label class="check"><input type="checkbox" aria-label="Redact: best-guess name Helena Vasquez, please review"><span class="box"></span></label>
+                <div class="meta">
+                  <div class="chips"><span class="chip neutral">Name (best-guess)</span><span class="chip med">Less sure</span><span class="status-pill unresolved">To review</span></div>
+                  <div class="val">Helena Vasquez</div>
+                  <div class="ctx">…countersigned by <mark>Helena Vasquez</mark> as witness…</div>
+                  <span class="loc" data-fid="f7">&#128205; p.3 · lower &mdash; show on page</span>
+                  <div class="rowacts">
+                    <button class="linkbtn">Keep (redact)</button>
+                    <button class="linkbtn">Remove from list</button>
+                    <button class="linkbtn">Edit span</button>
+                  </div>
+                </div>
+              </div>
+
+              <p class="hint" style="margin:2px 0 0 4px">…and 2 more to review.</p>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+          <div class="btn-row">
+            <button class="btn primary" data-stage="sensitive">Next: sensitive passages &rarr;</button>
+            <span class="hint warn">5 items still to review &mdash; you can come back to them.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <span class="f"><span class="dotmark"></span> <b>Tool ready</b></span>
+      <span class="f"><b>Local-only</b> — nothing leaves this computer</span>
+      <span class="f"><b>Rule-based</b> — no AI, no guessing</span>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       STAGE 4 — SENSITIVE PASSAGES (required acknowledge gate)
+       ================================================================ -->
+  <section class="stage" id="stage-sensitive" aria-labelledby="h-sensitive">
+    <div class="wrap">
+      <h2 id="h-sensitive" class="vh">Stage 4: Sensitive passages</h2>
+
+      <!-- the gate banner: must review to continue -->
+      <div class="banner warn" id="gate-banner">
+        <span class="ic" aria-hidden="true">&#9888;</span>
+        <div class="body">
+          <b>You must read these before you can export.</b>
+          <p>These passages aren&rsquo;t identifiers, so they&rsquo;re <b>not removed automatically</b> &mdash;
+            but they often carry privilege or could re-identify someone even with names gone. Read each,
+            then tick <b>&ldquo;I&rsquo;ve reviewed this&rdquo;</b>. Export stays locked until both are acknowledged.</p>
+        </div>
+      </div>
+
+      <div class="card priv-card">
+        <div class="section-h">
+          <h2>&#128065; Passages flagged for your eyes</h2>
+          <span class="chip med" id="ack-count">0 of 2 acknowledged</span>
+        </div>
+        <div class="priv-banner">
+          <b>These are NOT redacted &mdash; you decide.</b> We spotted wording that often signals
+          privilege or confidentiality, or a paragraph dense enough to identify someone <i>even
+          after names are removed</i>. A flag here does <b>not</b> make the text safe to send.
+          To remove anything inside one, go back to <b>Review</b> and add it as a redaction.
+        </div>
+
+        <div class="passages">
+          <div class="passage privilege" data-pid="p1">
+            <div class="ptop">
+              <span class="pcat">Looks privileged</span>
+              <span class="chip high">High</span>
+              <span class="preason">Mentions legal advice &amp; a &ldquo;without prejudice&rdquo; marker.</span>
+            </div>
+            <div style="margin-bottom:6px"><span class="pkw">legal advice</span><span class="pkw">without prejudice</span></div>
+            <div class="ptext">&ldquo;Per <mark>legal advice</mark> from our external counsel, and strictly
+              <mark>without prejudice</mark>, the Seller is prepared to accept a reduced indemnity cap
+              should the Buyer waive the disputed earn-out clause…&rdquo;</div>
+            <div class="pacts">
+              <span class="ploc">&#128205; p.3 · paragraph 4</span>
+              <span style="flex:1"></span>
+              <button class="btn ghost sm" data-stage="review">Open in Review to redact</button>
+              <label class="check ack"><input type="checkbox" class="ackbox" aria-label="I've reviewed the privileged passage on page 3"><span class="box"></span> I&rsquo;ve reviewed this</label>
+            </div>
+          </div>
+
+          <div class="passage reident" data-pid="p2">
+            <div class="ptop">
+              <span class="pcat">Could re-identify someone</span>
+              <span class="chip med">Medium</span>
+              <span class="preason">A short bio packs several personal details together.</span>
+            </div>
+            <div class="ptext">&ldquo;The sole female director appointed in 2019, formerly the regional CFO at
+              a listed shipping group, who relocated from Jakarta and sits on two charity boards…&rdquo;
+              <span class="hint">— even with the name removed, these details may point to one person.</span></div>
+            <div class="pacts">
+              <span class="ploc">&#128205; p.6 · directors&rsquo; bios</span>
+              <span style="flex:1"></span>
+              <button class="btn ghost sm" data-stage="review">Open in Review to redact</button>
+              <label class="check ack"><input type="checkbox" class="ackbox" aria-label="I've reviewed the re-identification passage on page 6"><span class="box"></span> I&rsquo;ve reviewed this</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- ACKNOWLEDGED state appears once both ticked -->
+        <div class="banner ok hidden" id="ack-done">
+          <span class="ic" aria-hidden="true">&#10003;</span>
+          <div class="body">
+            <b>Both passages acknowledged.</b>
+            <p>You&rsquo;ve confirmed you read them. Export is now unlocked &mdash; redacting them is still
+              your call, back in Review.</p>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn ghost" data-stage="review">&larr; Back to Review</button>
+          <button class="btn primary" id="to-export" data-stage="export" disabled aria-disabled="true">Continue to Export &rarr;</button>
+          <span class="hint" id="ack-hint">Tick both boxes above to continue.</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <span class="f"><span class="dotmark" style="background:var(--purple)"></span> <b>Your decision</b></span>
+      <span class="f"><b>Local-only</b> — nothing leaves this computer</span>
+      <span class="f"><b>Never auto-deleted</b> — a person decides</span>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       STAGE 5 — EXPORT (gating checklist + style + destination + report)
+       ================================================================ -->
+  <section class="stage" id="stage-export" aria-labelledby="h-export">
+    <div class="wrap">
+      <h2 id="h-export" class="vh">Stage 5: Export</h2>
+
+      <!-- ===== EXPORT GATING checklist ===== -->
+      <div class="card">
+        <div class="section-h"><h2>Before you save</h2><span class="sub">a quick safety check</span></div>
+
+        <!-- BLOCKED variant -->
+        <div id="exp-checklist-blocked">
+          <div class="banner error">
+            <span class="ic" aria-hidden="true">&#128274;</span>
+            <div class="body">
+              <b>Not ready to export yet &mdash; 3 things need your attention.</b>
+              <p>Saving is paused until these are handled. Nothing has been written, and your original
+                file is untouched.</p>
+            </div>
+          </div>
+          <div class="checklist">
+            <div class="cl-item block">
+              <span class="ci" aria-hidden="true">!</span>
+              <div class="clbody"><b>3 items still to review</b>
+                <p>In <b>Review</b>, the amber &ldquo;Please review&rdquo; items haven&rsquo;t been decided. Decide each (keep or remove).</p></div>
+              <div class="clact"><button class="btn ghost sm" data-stage="review">Go to Review</button></div>
+            </div>
+            <div class="cl-item block">
+              <span class="ci" aria-hidden="true">!</span>
+              <div class="clbody"><b>2 sensitive passages not acknowledged</b>
+                <p>You must read the flagged privilege / re-identification passages and tick that you&rsquo;ve seen them.</p></div>
+              <div class="clact"><button class="btn ghost sm" data-stage="sensitive">Go to Sensitive passages</button></div>
+            </div>
+            <div class="cl-item warn">
+              <span class="ci" aria-hidden="true">!</span>
+              <div class="clbody"><b>1 item we couldn&rsquo;t fully remove</b>
+                <p>A name on an unusual-font page (p.12) can&rsquo;t be edited out cleanly. We won&rsquo;t pretend
+                  it&rsquo;s gone &mdash; <b>it&rsquo;s flagged so you can handle it</b> (remove the whole page, or
+                  re-export it from a clean copy). <b>You&rsquo;ll see this called out in the final report too.</b></p></div>
+              <div class="clact"><button class="btn ghost sm">See the item</button></div>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="btn-row">
+            <button class="btn primary" disabled aria-disabled="true">Save redacted copy</button>
+            <span class="hint warn">Resolve the items above to enable saving.</span>
+          </div>
+        </div>
+
+        <!-- READY variant -->
+        <div id="exp-checklist-ready" class="hidden">
+          <div class="banner ok">
+            <span class="ic" aria-hidden="true">&#10003;</span>
+            <div class="body">
+              <b>Ready to export.</b>
+              <p>Everything has been reviewed. Choose how the gaps should read and where to save below.</p>
+            </div>
+          </div>
+          <div class="checklist">
+            <div class="cl-item ok"><span class="ci" aria-hidden="true">&#10003;</span>
+              <div class="clbody"><b>All findings decided</b><p>17 reviewed &mdash; 16 to remove, 1 left in.</p></div></div>
+            <div class="cl-item ok"><span class="ci" aria-hidden="true">&#10003;</span>
+              <div class="clbody"><b>Sensitive passages acknowledged</b><p>Both flagged passages were read.</p></div></div>
+            <div class="cl-item warn"><span class="ci" aria-hidden="true">!</span>
+              <div class="clbody"><b>1 item we couldn&rsquo;t fully remove &mdash; flagged for you</b>
+                <p>The unusual-font name on p.12 couldn&rsquo;t be edited out cleanly, so it&rsquo;s flagged
+                  (not silently covered) &mdash; handle it before you rely on the copy. Noted in the report.</p></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== REPLACEMENT STYLE — [REDACTED] vs AI-safe labels + the KEY ===== -->
+      <div class="card">
+        <div class="section-h"><h2>What should the gaps say?</h2></div>
+        <p class="help mt0">Both remove exactly the same text &mdash; this only changes the marker left behind.</p>
+        <div class="repl-choice" style="margin-top:10px">
+          <label class="repl-opt">
+            <input type="radio" name="replstyle" value="redacted" checked>
+            <span class="dot"></span>
+            <span class="rtxt">
+              <b>Mark removed text as <span class="rtok">[REDACTED]</span></b>
+              <span class="help mt0">The usual choice. Every removed item reads the same.</span>
+            </span>
+          </label>
+          <label class="repl-opt">
+            <input type="radio" name="replstyle" value="labels">
+            <span class="dot"></span>
+            <span class="rtxt">
+              <b>Replace with labels for readability / further AI use</b>
+              <span class="help mt0">Instead of identical gaps, each removed item gets a readable
+                label &mdash; each name becomes <span class="rtok">[A]</span>, <span class="rtok">[B]</span>,
+                &hellip; and details become <span class="rtok">[address]</span>,
+                <span class="rtok">[email]</span> &hellip; so the draft still reads clearly and an AI
+                tool can follow who&rsquo;s who without seeing the real information.</span>
+              <span class="help warn">Still a first pass &mdash; labels don&rsquo;t make a draft
+                &ldquo;safe to send&rdquo;; read it before you paste it anywhere.</span>
+            </span>
+          </label>
+        </div>
+
+        <!-- the local-only re-identification KEY (shown when AI-safe labels chosen) -->
+        <div class="keycard hidden" id="export-key">
+          <div class="keyhead">
+            <span class="ic" aria-hidden="true">&#128274;</span>
+            <div>
+              <b>Key &mdash; what each label really means</b>
+              <p><span class="keystrong">This key stays on your computer. Never paste it into an AI
+                or send it anywhere.</span> It&rsquo;s the only thing that turns the labels back into real
+                people &mdash; anyone with both the labeled text and this key can re-identify everyone.
+                Keep it to yourself, and delete it when you&rsquo;re done.</p>
+            </div>
+          </div>
+          <div class="keytable">
+            <div class="keyrow"><span class="k lbl-tok">[A]</span><span class="arr">=</span><span class="v">Jefferson Tan</span></div>
+            <div class="keyrow"><span class="k lbl-tok">[B]</span><span class="arr">=</span><span class="v">Alexander Wong</span></div>
+            <div class="keyrow"><span class="k lbl-tok">[address 1]</span><span class="arr">=</span><span class="v">12 Marina Blvd, #18-01, Singapore 018980</span></div>
+            <div class="keyrow"><span class="k lbl-tok">[email]</span><span class="arr">=</span><span class="v">jefferson.tan@northwind-holdings.example</span></div>
+            <div class="keyrow"><span class="k lbl-tok">[phone]</span><span class="arr">=</span><span class="v">+65 6555 0142</span></div>
+            <div class="keyrow"><span class="k lbl-tok">[Singapore ID]</span><span class="arr">=</span><span class="v">S1234567D</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== DESTINATION + OVERWRITE handling ===== -->
+      <div class="card">
+        <div class="section-h"><h2>Where to save</h2></div>
+        <label class="lbl" for="dest">Folder</label>
+        <div class="dest-row">
+          <span class="dest-path" id="dest">…\\Project Heron\\exports\\</span>
+          <button class="btn ghost" id="choose-folder">Choose folder…</button>
+        </div>
+        <div class="banner info" style="margin-top:14px;margin-bottom:0">
+          <span class="ic" aria-hidden="true">&#128193;</span>
+          <div class="body">
+            <b>Saved as a NEW copy &mdash; your original is never changed.</b>
+            <p>We&rsquo;ll write <span class="rtok">Asia-Pacific-SPA-draft (redacted).pdf</span>. If a file with
+              that name already exists, we add a number (<span class="rtok">(2)</span>) rather than
+              overwrite it &mdash; nothing is ever replaced silently.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== BEFORE / AFTER comparison ===== -->
+      <div class="card">
+        <div class="section-h"><h2>Before &amp; after</h2><span class="sub">a sample of what changes</span></div>
+        <div class="compare">
+          <div class="compare-col before">
+            <div class="ch"><span>BEFORE (original)</span><span>p.3</span></div>
+            <div class="compare-doc">
+              …made between <span class="was">Jefferson&nbsp;Tan</span>, director of
+              <span class="was">Northwind&nbsp;Holdings&nbsp;(Pte)&nbsp;Ltd</span>. Contact
+              <span class="was">jefferson.tan@northwind-holdings.example</span>; the Guarantor
+              (NRIC <span class="was">S1234567D</span>) undertakes…
+            </div>
+          </div>
+          <div class="compare-col after">
+            <div class="ch"><span>AFTER (redacted copy)</span><span>p.3</span></div>
+            <div class="compare-doc" id="compare-after">
+              …made between <span class="now">[REDACTED]</span>, director of
+              <span class="now">[REDACTED]</span>. Contact
+              <span class="now">[REDACTED]</span>; the Guarantor
+              (NRIC <span class="now">[REDACTED]</span>) undertakes…
+            </div>
+          </div>
+        </div>
+        <p class="help">In the redacted copy the words are <b>gone</b> from the file, not hidden behind a
+          black box &mdash; copying the page yields nothing where they were.</p>
+      </div>
+
+      <!-- ===== FINAL PROCESSING / REMOVAL REPORT (the trust artifact) ===== -->
+      <div class="card report-card">
+        <div class="report-head">
+          <span class="ic" aria-hidden="true">&#10003;</span>
+          <div>
+            <b>Redacted copy saved &mdash; here&rsquo;s exactly what happened</b>
+            <p class="help mt0">A record of what was removed. Removed and destination-controlled &mdash;
+              <b>never &ldquo;safe to send&rdquo;</b>; read the copy before you rely on it.</p>
+          </div>
+        </div>
+
+        <div class="saved-pdf" style="margin:8px 0 4px">
+          <span class="ic" aria-hidden="true">&#10003;</span>
+          <div class="body">
+            <b>Saved</b> &mdash; <span class="fn">Asia-Pacific-SPA-draft (redacted).pdf</span>
+            <p>Saved to your <b>exports</b> folder and opened the folder for you. Your original file was not changed.</p>
+          </div>
+        </div>
+
+        <div class="report-grid">
+          <div class="rstat"><div class="n">16</div><div class="l">items removed</div></div>
+          <div class="rstat"><div class="n">18</div><div class="l">pages processed</div></div>
+          <div class="rstat"><div class="n">1</div><div class="l">flagged: couldn&rsquo;t fully remove</div></div>
+          <div class="rstat"><div class="n">0</div><div class="l">silently covered</div></div>
+        </div>
+
+        <!-- the verification statements — genuine removal, not visual cover -->
+        <div class="report-verify">
+          <div class="v"><span class="ck" aria-hidden="true">&#10003;</span><div><b>Text was spliced out of the PDF, not covered.</b>
+            The matched characters were removed from the page&rsquo;s content stream &mdash; selecting or copying
+            the redacted area yields nothing.</div></div>
+          <div class="v"><span class="ck" aria-hidden="true">&#10003;</span><div><b>Hidden document data scrubbed.</b>
+            File information (<span class="rtok">/Info</span>) and embedded
+            <span class="rtok">XMP</span> metadata &mdash; author, title, original-firm details &mdash; were cleared,
+            so the redacted names can&rsquo;t leak through document properties.</div></div>
+          <div class="v"><span class="ck" aria-hidden="true">&#10003;</span><div><b>Annotation text checked.</b>
+            Link targets and comment text were scanned and scrubbed where they carried an identifier.</div></div>
+          <div class="v miss"><span class="ck" aria-hidden="true">&#9888;</span><div><b>1 item we couldn&rsquo;t fully remove (p.12) &mdash; flagged, not covered.</b>
+            On an unusual-font page the exact characters couldn&rsquo;t be edited out. We did <b>not</b> hide it
+            behind a box and call it done (that would leave the text recoverable underneath) &mdash; it&rsquo;s
+            flagged here so you can handle it: read p.12 and remove the page or re-export from a clean copy.</div></div>
+        </div>
+
+        <div class="report-breakdown">
+          <div class="bd-row"><span class="bt">Emails</span><span class="bn">3</span></div>
+          <div class="bd-row"><span class="bt">Phone numbers</span><span class="bn">1</span></div>
+          <div class="bd-row"><span class="bt">Singapore IDs (NRIC)</span><span class="bn">1</span></div>
+          <div class="bd-row"><span class="bt">Names (listed + best-guess)</span><span class="bn">4</span></div>
+          <div class="bd-row"><span class="bt">Reference / account numbers</span><span class="bn">6</span></div>
+          <div class="bd-row"><span class="bt">You added manually</span><span class="bn">1</span></div>
+          <div class="bd-row miss"><span class="bt">Couldn&rsquo;t fully remove &mdash; flagged for you (p.12)</span><span class="bn">1</span></div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="btn-row">
+          <button class="btn primary">Open the saved folder</button>
+          <button class="btn ghost">Save the report (.txt)</button>
+          <button class="btn ghost" data-stage="document">Redact another document</button>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <span class="f"><span class="dotmark"></span> <b>Done</b></span>
+      <span class="f"><b>Local-only</b> — nothing leaves this computer</span>
+      <span class="f"><b>Removed + destination-controlled</b> — never &ldquo;safe to send&rdquo;</span>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       IMAGE / SCANNED-DOCUMENT REDACTION (the OCR image path)
+       A scanned page where detected items are removed by DELETING the pixels
+       under a black box — true removal in a flattened raster — with per-box
+       review. Reached from Stage 1's scanned-image warning ("Read the images
+       instead"). Toggled here by the demo bar for the mockup.
+       ================================================================ -->
+  <section class="stage" id="stage-image" aria-labelledby="h-image">
+    <div class="wrap wide">
+      <h2 id="h-image" class="vh">Scanned-document (image) redaction</h2>
+
+      <div class="banner info">
+        <span class="ic" aria-hidden="true">&#128247;</span>
+        <div class="body">
+          <b>This page is a scan &mdash; the words are part of the picture.</b>
+          <p>There&rsquo;s no text to edit, so we read the page image and, for each item you keep, we
+            <b>delete the pixels under a black box</b> &mdash; the words are removed from the picture, not
+            just covered. Tick each box before anything is removed.</p>
+        </div>
+      </div>
+
+      <div class="scanwrap">
+        <!-- the scanned page image (synthetic raster look) with removable black boxes -->
+        <div class="scanframe">
+          <div class="scanpage" id="scanpage">
+            <div class="scan-h">DEED OF GUARANTEE</div>
+            <div class="scan-sub">Project Heron · scanned counterpart · page 2 of 4</div>
+            <div class="scan-line">This guarantee is given by <span class="scanbox removed" data-sid="s1" tabindex="0" role="button" aria-label="Detected name, Jefferson Tan: removed (a black box covers the deleted area). Activate to keep it in."><span class="under">Jefferson&nbsp;Tan</span></span>, of</div>
+            <div class="scan-line"><span class="scanbox removed" data-sid="s2" tabindex="0" role="button" aria-label="Detected address: removed (a black box covers the deleted area). Activate to keep it in."><span class="under">12 Marina Blvd, #18-01, Singapore 018980</span></span>,</div>
+            <div class="scan-line">whose identity card number is <span class="scanbox removed" data-sid="s3" tabindex="0" role="button" aria-label="Detected Singapore ID, S1234567D: removed. Activate to keep it in."><span class="under">S1234567D</span></span>,</div>
+            <div class="scan-line">in favour of the Lender. Notices may be sent to</div>
+            <div class="scan-line"><span class="scanbox" data-sid="s4" tabindex="0" role="button" aria-label="Detected phone number, +65 6555 0142: kept in (no black box yet). Activate to remove it."><span class="under">+65 6555 0142</span></span> or by post to the registered office.</div>
+          </div>
+        </div>
+
+        <!-- per-box review list -->
+        <div>
+          <div class="unresolved-bar" id="scan-bar" role="status">
+            <span class="big" id="scan-count">3</span>
+            <div class="ub-txt">
+              <b>boxes set to remove</b>
+              <div class="s">4 found on this page &middot; tick each one you want gone. A removed box
+                <b>deletes the pixels under it</b> in the saved copy.</div>
+            </div>
+          </div>
+
+          <div class="scanlist">
+            <div class="scanitem active" data-sid="s1">
+              <label class="check"><input type="checkbox" class="scanchk" checked aria-label="Remove the detected name on the scan"><span class="box"></span></label>
+              <div class="meta">
+                <div class="chips" style="display:flex;gap:6px;margin-bottom:3px"><span class="chip neutral">Name (read from image)</span></div>
+                <div class="v">Jefferson Tan</div>
+                <div class="ctx">line 1 &mdash; &ldquo;…given by Jefferson Tan, of…&rdquo;</div>
+              </div>
+            </div>
+            <div class="scanitem" data-sid="s2">
+              <label class="check"><input type="checkbox" class="scanchk" checked aria-label="Remove the detected address on the scan"><span class="box"></span></label>
+              <div class="meta">
+                <div class="chips" style="display:flex;gap:6px;margin-bottom:3px"><span class="chip neutral">Address (read from image)</span></div>
+                <div class="v">12 Marina Blvd, #18-01, Singapore 018980</div>
+                <div class="ctx">line 2</div>
+              </div>
+            </div>
+            <div class="scanitem" data-sid="s3">
+              <label class="check"><input type="checkbox" class="scanchk" checked aria-label="Remove the detected Singapore ID on the scan"><span class="box"></span></label>
+              <div class="meta">
+                <div class="chips" style="display:flex;gap:6px;margin-bottom:3px"><span class="chip neutral">Singapore ID (read from image)</span></div>
+                <div class="v">S1234567D</div>
+                <div class="ctx">line 3 &mdash; &ldquo;…identity card number is…&rdquo;</div>
+              </div>
+            </div>
+            <div class="scanitem" data-sid="s4">
+              <label class="check"><input type="checkbox" class="scanchk" aria-label="Remove the detected phone number on the scan"><span class="box"></span></label>
+              <div class="meta">
+                <div class="chips" style="display:flex;gap:6px;margin-bottom:3px"><span class="chip neutral">Phone (read from image)</span><span class="chip med">Less sure</span></div>
+                <div class="v">+65 6555 0142</div>
+                <div class="ctx">line 5 &mdash; not ticked, so it&rsquo;s still in the picture</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+          <div class="btn-row">
+            <button class="btn primary">Save redacted image PDF</button>
+            <button class="btn ghost" data-stage="document">&larr; Back</button>
+          </div>
+          <p class="help" style="margin-top:8px">Saves a new flattened image where the removed boxes have
+            <b>no recoverable text underneath</b> &mdash; your original scan is never changed.</p>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <span class="f"><span class="dotmark"></span> <b>Image path</b></span>
+      <span class="f"><b>Local-only</b> — nothing leaves this computer</span>
+      <span class="f"><b>True removal</b> — pixels deleted, not covered</span>
+    </div>
+  </section>
+
+  </main>
+</div>
+
+<!-- ====================================================================
+     FLAGGED-PASSAGE POPOVER (a lightweight, dismissible modal on THIS page).
+     Opened by clicking a flagged (sensitive / privilege / re-identification)
+     highlight in the Review preview — it does NOT navigate to another stage.
+     ==================================================================== -->
+<div class="modal-overlay hidden" id="flag-modal" role="dialog" aria-modal="true" aria-labelledby="flag-modal-title">
+  <div class="modal">
+    <div class="mh">
+      <span class="ic" aria-hidden="true">&#128065;</span>
+      <h3 id="flag-modal-title">Flagged for your eyes &mdash; looks privileged</h3>
+      <button class="mx" id="flag-modal-close" aria-label="Close">Close</button>
+    </div>
+    <div class="mbody">
+      <p>This isn&rsquo;t an identifier, so it&rsquo;s <b>not removed automatically</b>. We flagged it because the
+        wording often signals legal privilege or confidentiality &mdash; you decide what to do.</p>
+      <div class="mquote">&ldquo;Per <mark>legal advice</mark> from our external counsel, and strictly
+        <mark>without prejudice</mark>, the Seller is prepared to accept a reduced indemnity cap should the
+        Buyer waive the disputed earn-out clause.&rdquo;</div>
+      <div class="mwhy">
+        <span class="chip priv">Looks privileged</span>
+        <span class="chip high">High</span>
+        <span class="chip neutral">p.3 · paragraph 4</span>
+      </div>
+      <p class="help">Keywords matched: <b>&ldquo;legal advice&rdquo;</b>, <b>&ldquo;without prejudice&rdquo;</b>.
+        Detection is rule-based &mdash; a flag here does not make the passage safe to send.</p>
+      <div class="macts">
+        <button class="btn primary" id="flag-modal-goto" data-stage="sensitive">See all flagged passages &rarr;</button>
+        <button class="btn ghost" id="flag-modal-dismiss">Dismiss</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================================
+   DEMO-ONLY JS — switches stages/states + small interactive proofs.
+   No product logic, no network, no storage.
+   ============================================================================ */
+(function(){
+  'use strict';
+  var live = document.getElementById('live');
+  function announce(msg){ if (live) live.textContent = msg; }
+
+  /* ---- stage switching (demo bar + any [data-stage] in the page) ---- */
+  var stages = {};
+  document.querySelectorAll('.stage').forEach(function(s){ stages[s.id.replace('stage-','')] = s; });
+  var stageMeta = {
+    document:  {n:1, t:'Document'},
+    detection: {n:2, t:'Detection'},
+    review:    {n:3, t:'Review. 17 findings, 5 still to review'},
+    sensitive: {n:4, t:'Sensitive passages. 2 to acknowledge'},
+    export:    {n:5, t:'Export'},
+    image:     {side:true, t:'Scanned-document (image) redaction'}
+  };
+  // stages that map to a stepper step. The IMAGE path is a SIDE-PATH off
+  // Document (a scanned PDF) and has NO stepper step of its own, so the stepper
+  // must NOT leave a stale step marked "current" while it is shown.
+  var stepperStages = {document:1, detection:1, review:1, sensitive:1, export:1};
+  function showStage(name){
+    if (!stages[name]) return;
+    Object.keys(stages).forEach(function(k){ stages[k].classList.toggle('show', k === name); });
+    // demo-bar stage buttons
+    document.querySelectorAll('.demobar [data-stage]').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-stage') === name);
+    });
+    // stepper aria-current + visual current. A side-path (e.g. 'image') matches
+    // no step → every step clears 'current' rather than leaving a stale one set.
+    var inStepper = !!stepperStages[name];
+    document.querySelectorAll('.stepper .step').forEach(function(li){
+      var is = inStepper && li.getAttribute('data-step') === name;
+      li.classList.toggle('current', is);
+      var btn = li.querySelector('.btn-step');
+      if (btn) btn.setAttribute('aria-current', is ? 'step' : 'false');
+    });
+    var m = stageMeta[name];
+    if (m) announce(m.side ? (m.t + ' (a side path off Document — the main stages are unchanged).')
+                           : ('Stage ' + m.n + ' of 5, ' + m.t + '.'));
+    window.scrollTo(0,0);
+  }
+  document.addEventListener('click', function(e){
+    var st = e.target.closest('[data-stage]');
+    if (st){
+      // a locked stepper step shouldn't navigate
+      if (st.getAttribute('aria-disabled') === 'true') {
+        announce('Export is locked. Finish Review and acknowledge the sensitive passages first.');
+        e.preventDefault(); return;
+      }
+      showStage(st.getAttribute('data-stage'));
+    }
+  });
+
+  /* ---- demo STATE toggles (the second demo-bar group + in-page buttons) ----
+     POLARITY NOTE: flip(id, hide) — hide=true ADDS .hidden (hides the element),
+     hide=false REMOVES .hidden (shows it). So `flip('doc-upload', false)` SHOWS the
+     upload form. Read each pair as "show one card, hide the other". ---- */
+  var demoHandlers = {
+    'doc-empty':    function(){ showStage('document'); flip('doc-upload', false); flip('doc-ready', true);  flip('scan-warn', true);  },  // show upload, hide ready
+    'doc-loaded':   function(){ showStage('document'); flip('doc-upload', true);  flip('doc-ready', false); flip('scan-warn', true);  },  // hide upload, show ready
+    'doc-scan':     function(){ showStage('document'); flip('doc-upload', false); flip('doc-ready', true);  flip('scan-warn', false); },  // show upload + the scan warning
+    'det-settings': function(){ showStage('detection'); flip('det-scanning', true);  flip('det-settings', false); },  // show settings, hide the scanning card
+    'det-scanning': function(){ showStage('detection'); flip('det-scanning', false); flip('det-settings', true);  },  // show scanning, hide settings
+    'review-text': function(){ showStage('review'); setDocKind('text'); },
+    'review-pdf': function(){ showStage('review'); setDocKind('pdf'); },
+    'image-demo': function(){ showStage('image'); },
+    'exp-blocked': function(){ showStage('export'); flip('exp-checklist-blocked', false); flip('exp-checklist-ready', true); },
+    'exp-ready': function(){ showStage('export'); flip('exp-checklist-blocked', true); flip('exp-checklist-ready', false); }
+  };
+  function el(id){ return document.getElementById(id); }
+  function flip(id, hide){ var e = el(id); if (e) e.classList.toggle('hidden', !!hide); }
+  function press(id, on){ var e = el(id); if (e) e.setAttribute('aria-pressed', on ? 'true':'false'); }
+
+  /* SCOPE: the on-page preview is TEXT-ONLY. A PDF document shows the findings list
+     plus a list-only note — never a faux page canvas. */
+  function setDocKind(kind){
+    var pdf = kind === 'pdf';
+    flip('pv-text', pdf);          // hide the live text preview for a PDF
+    flip('preview-live-note', pdf);// the "tick to preview" note applies to the text path only
+    flip('pv-pdf-note', !pdf);     // show the list-only note for a PDF
+    var k = el('preview-kind');
+    if (k){ k.textContent = pdf ? 'PDF document' : 'Text document';
+      k.className = 'chip ' + (pdf ? 'accent' : 'neutral'); }
+    announce(pdf
+      ? 'PDF document. Review is list-based — the findings list on the right is the preview; matched text is removed from the file itself when you save.'
+      : 'Text document. The preview shows the document with highlights; ticking a finding previews the redaction in place.');
+  }
+  document.addEventListener('click', function(e){
+    var d = e.target.closest('[data-demo]');
+    if (d){ var h = demoHandlers[d.getAttribute('data-demo')]; if (h){ h(); markDemo(d); } }
+  });
+  function markDemo(btn){
+    // light visual feedback on the demo-bar state group only
+    if (!btn.closest('.demobar')) return;
+    var grp = btn.closest('.grp'); if (!grp) return;
+    grp.querySelectorAll('button').forEach(function(b){ b.classList.toggle('on', b === btn); });
+  }
+
+  /* ---- preview highlight <-> finding selection (the key two-way link) ---- */
+  function selectFinding(fid){
+    document.querySelectorAll('.cand').forEach(function(c){ c.classList.toggle('sel', c.getAttribute('data-fid') === fid); });
+    document.querySelectorAll('.hl[data-fid]').forEach(function(h){ h.classList.toggle('active', h.getAttribute('data-fid') === fid); });
+    var lbl = {f1:'Jefferson Tan, name',f3:'email',f4:'phone number, please review',f5:'Singapore ID',f6:'account number, please review',f7:'Helena Vasquez, please review'}[fid] || 'finding';
+    announce('Selected finding: ' + lbl + '.');
+  }
+
+  /* ---- LIVE redaction preview (Fix 3): ticking a finding swaps the value in the
+     text preview for its marker/label; unticking restores the original. The marker
+     depends on the chosen replacement style (plain [REDACTED] vs labels). ---- */
+  function replMode(){
+    var r = document.querySelector('input[name="replstyle"]:checked');
+    return r ? r.value : 'redacted';   // 'redacted' | 'labels'
+  }
+  function markerFor(hl){
+    if (replMode() === 'labels') return hl.getAttribute('data-mark') || '[REDACTED]';
+    return '[REDACTED]';
+  }
+  function applyPreview(fid, on){
+    var hl = document.querySelector('.hl[data-fid="'+fid+'"]');
+    if (!hl) return;
+    var valEl = hl.querySelector('.hlval') || hl;
+    if (on){
+      if (!hl.dataset.orig) hl.dataset.orig = valEl.innerHTML;   // remember original once
+      valEl.innerHTML = '<span class="hlmark">' + markerFor(hl) + '</span>';
+      hl.classList.add('redacted-preview');
+    } else {
+      if (hl.dataset.orig != null){ valEl.innerHTML = hl.dataset.orig; }
+      hl.classList.remove('redacted-preview');
+    }
+  }
+  // wire each finding checkbox to the live preview + its selection.
+  // NOTE: we do NOT apply previews on load — the document shows its ORIGINAL text first,
+  // so the "tick → live in-place redaction" behaviour is visible in the demo.
+  document.querySelectorAll('.cand[data-fid]').forEach(function(cand){
+    var fid = cand.getAttribute('data-fid');
+    var box = cand.querySelector('input[type="checkbox"]');
+    if (box){
+      box.addEventListener('change', function(){ applyPreview(fid, box.checked); selectFinding(fid);
+        announce((box.checked ? 'Redaction previewed in place for ' : 'Restored ') + (cand.querySelector('.val') ? cand.querySelector('.val').textContent : 'finding') + '.'); });
+    }
+  });
+  // re-render existing previews when the replacement style changes (labels <-> [REDACTED])
+  function refreshPreviews(){
+    document.querySelectorAll('.hl.redacted-preview[data-fid]').forEach(function(hl){
+      var valEl = hl.querySelector('.hlval') || hl;
+      valEl.innerHTML = '<span class="hlmark">' + markerFor(hl) + '</span>';
+    });
+  }
+
+  // click a highlight in the preview → select its finding (and toggle its checkbox)
+  document.querySelectorAll('.hl[data-fid]').forEach(function(h){
+    h.addEventListener('click', function(){
+      var fid = h.getAttribute('data-fid');
+      selectFinding(fid); scrollCand(fid);
+      var box = document.querySelector('.cand[data-fid="'+fid+'"] input[type="checkbox"]');
+      if (box){ box.checked = !box.checked; applyPreview(fid, box.checked); }
+    });
+    h.addEventListener('keydown', function(ev){ if (ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); h.click(); } });
+  });
+  // click a finding's location ref → highlight in the preview
+  document.querySelectorAll('.cand .loc').forEach(function(l){
+    l.addEventListener('click', function(){ selectFinding(l.getAttribute('data-fid')); });
+  });
+  function scrollCand(fid){
+    var c = document.querySelector('.cand[data-fid="'+fid+'"]');
+    if (c && c.scrollIntoView) c.scrollIntoView({block:'nearest'});
+  }
+
+  /* ---- FLAGGED passage → POPOVER on this page (Fix 2): does NOT navigate away ---- */
+  var flagModal = el('flag-modal'), lastFlagTrigger = null;
+  function openFlagModal(trigger){
+    if (!flagModal) return;
+    lastFlagTrigger = trigger || null;
+    flagModal.classList.remove('hidden');
+    var c = el('flag-modal-close'); if (c) c.focus();
+    announce('Opened: why this passage is flagged. Press Escape to close.');
+  }
+  function closeFlagModal(){
+    if (!flagModal) return;
+    flagModal.classList.add('hidden');
+    if (lastFlagTrigger && lastFlagTrigger.focus) lastFlagTrigger.focus();
+  }
+  document.querySelectorAll('.hl.priv').forEach(function(h){
+    h.addEventListener('click', function(){ openFlagModal(h); });
+    h.addEventListener('keydown', function(ev){ if (ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); openFlagModal(h); } });
+  });
+  if (flagModal){
+    var cl = el('flag-modal-close'), dm = el('flag-modal-dismiss');
+    if (cl) cl.addEventListener('click', closeFlagModal);
+    if (dm) dm.addEventListener('click', closeFlagModal);
+    // 'See all flagged passages' navigates AND closes the popover
+    var go = el('flag-modal-goto');
+    if (go) go.addEventListener('click', function(){ flagModal.classList.add('hidden'); });
+    // click the backdrop (outside the .modal) closes it
+    flagModal.addEventListener('click', function(ev){ if (ev.target === flagModal) closeFlagModal(); });
+    document.addEventListener('keydown', function(ev){ if (ev.key === 'Escape' && !flagModal.classList.contains('hidden')) closeFlagModal(); });
+  }
+
+  /* ---- detection: open the <details> updates aria-expanded ---- */
+  var det = document.querySelector('.settings-more');
+  if (det){ det.addEventListener('toggle', function(){
+    var s = det.querySelector('summary'); if (s) s.setAttribute('aria-expanded', det.open ? 'true':'false');
+  }); }
+
+  /* ---- sensitive passages: the acknowledge GATE ---- */
+  var ackBoxes = Array.prototype.slice.call(document.querySelectorAll('.ackbox'));
+  var toExport = el('to-export'), ackDone = el('ack-done'), ackHint = el('ack-hint'), ackCount = el('ack-count');
+  function syncAck(){
+    var on = ackBoxes.filter(function(b){ return b.checked; }).length;
+    var all = on === ackBoxes.length && ackBoxes.length > 0;
+    if (ackCount){ ackCount.textContent = on + ' of ' + ackBoxes.length + ' acknowledged';
+      ackCount.className = 'chip ' + (all ? 'ok' : 'med'); }
+    if (toExport){ toExport.disabled = !all; toExport.setAttribute('aria-disabled', all ? 'false':'true'); }
+    if (ackHint) ackHint.textContent = all ? 'Both reviewed — you can continue.' : 'Tick both boxes above to continue.';
+    if (ackDone) ackDone.classList.toggle('hidden', !all);
+    // reflect into the stepper: gate cleared → export unlock-able
+    var sens = document.querySelector('.step[data-step="sensitive"]');
+    var exp = document.querySelector('.step[data-step="export"]');
+    if (sens){ sens.classList.toggle('done', all); sens.classList.toggle('gate', !all);
+      var g = sens.querySelector('.gatemark'); if (g) g.textContent = all ? 'Done' : 'Must review';
+      if (g) g.className = all ? 'donemark' : 'gatemark';
+      var num = sens.querySelector('.num'); if (num) num.innerHTML = all ? '&#10003;' : '!'; }
+    if (exp){ exp.classList.toggle('locked', !all);
+      var btn = exp.querySelector('.btn-step'); if (btn) btn.setAttribute('aria-disabled', all ? 'false':'true');
+      var lm = exp.querySelector('.lockmark'); if (lm){ lm.textContent = all ? 'Ready' : 'Locked';
+        var nm = exp.querySelector('.num'); if (nm) nm.innerHTML = all ? '5' : '&#128274;'; } }
+    announce(all ? 'Both sensitive passages acknowledged. Export is now unlocked.'
+                 : on + ' of ' + ackBoxes.length + ' sensitive passages acknowledged.');
+  }
+  ackBoxes.forEach(function(b){ b.addEventListener('change', syncAck); });
+
+  /* ---- export: replacement style flips KEY + before/after + report ---- */
+  var afterEl = el('compare-after'), keyEl = el('export-key');
+  function setReplStyle(mode){
+    var labels = mode === 'labels';
+    if (keyEl) keyEl.classList.toggle('hidden', !labels);
+    if (afterEl){
+      afterEl.innerHTML = labels
+        ? '…made between <span class="nowlbl">[A]</span>, director of <span class="nowlbl">[B]</span>. '
+          + 'Contact <span class="nowlbl">[email]</span>; the Guarantor (NRIC <span class="nowlbl">[Singapore&nbsp;ID]</span>) undertakes…'
+        : '…made between <span class="now">[REDACTED]</span>, director of <span class="now">[REDACTED]</span>. '
+          + 'Contact <span class="now">[REDACTED]</span>; the Guarantor (NRIC <span class="now">[REDACTED]</span>) undertakes…';
+    }
+    announce(labels ? 'AI-safe labels selected. The local-only key is shown below — never paste it into an AI.'
+                    : 'Plain [REDACTED] marks selected.');
+  }
+  document.querySelectorAll('input[name="replstyle"]').forEach(function(r){
+    r.addEventListener('change', function(){ if (r.checked){ setReplStyle(r.value); refreshPreviews(); } });
+  });
+
+  /* ---- filter status chips: single-select visual (demo) ---- */
+  document.querySelectorAll('.filterchips .fchip').forEach(function(c){
+    c.addEventListener('click', function(){
+      c.parentNode.querySelectorAll('.fchip').forEach(function(x){ x.setAttribute('aria-pressed','false'); });
+      c.setAttribute('aria-pressed','true');
+      announce('Filter applied: ' + (c.textContent || '').trim() + '.');
+    });
+  });
+  /* ---- ADD A REDACTION — find-and-replace style (Fix 4) ---- */
+  // PRIMARY: type a word/name to hide everywhere (maps to the engine's TERMS feature)
+  var hideInput = el('hide-everywhere'), hideBtn = el('hide-everywhere-btn'), hideHint = el('hide-everywhere-hint');
+  if (hideBtn && hideInput){
+    hideBtn.addEventListener('click', function(){
+      var term = (hideInput.value || '').trim();
+      if (!term){ if (hideHint) hideHint.textContent = 'Type a word or name first, then click Hide everywhere.'; hideInput.focus(); return; }
+      // demo: highlight every matching run in the text preview live
+      var n = highlightTermEverywhere(term);
+      if (hideHint) hideHint.textContent = n > 0
+        ? ('Hiding "' + term + '" everywhere — ' + n + ' match' + (n===1?'':'es') + ' will be removed. Added to the list.')
+        : ('"' + term + '" isn’t in this page, but it will still be removed anywhere it appears.');
+      announce('Added "' + term + '" to hide everywhere. ' + n + ' matches highlighted in the preview.');
+      hideInput.value = '';
+    });
+    hideInput.addEventListener('keydown', function(ev){ if (ev.key === 'Enter'){ ev.preventDefault(); hideBtn.click(); } });
+  }
+  // very small, demo-only literal highlighter over the text preview (no regex on user input
+  // beyond escaping; case-insensitive whole-string match within each text node).
+  function highlightTermEverywhere(term){
+    var canvas = el('text-canvas'); if (!canvas) return 0;
+    var low = term.toLowerCase(); var count = 0;
+    var walker = document.createTreeWalker(canvas, NodeFilter.SHOW_TEXT, null);
+    var nodes = []; var cur;
+    while ((cur = walker.nextNode())){ if (cur.nodeValue && cur.nodeValue.toLowerCase().indexOf(low) !== -1
+      && !cur.parentNode.closest('.hl')) nodes.push(cur); }
+    nodes.forEach(function(node){
+      var text = node.nodeValue, lowText = text.toLowerCase(), idx, from = 0;
+      var frag = document.createDocumentFragment();
+      while ((idx = lowText.indexOf(low, from)) !== -1){
+        if (idx > from) frag.appendChild(document.createTextNode(text.slice(from, idx)));
+        var span = document.createElement('span');
+        span.className = 'hl manual redacted-preview';
+        span.innerHTML = '<span class="hlmark">[REDACTED]</span>';
+        span.title = 'You added: "' + term + '" — hidden everywhere';
+        frag.appendChild(span);
+        from = idx + term.length; count++;
+      }
+      if (from < text.length) frag.appendChild(document.createTextNode(text.slice(from)));
+      node.parentNode.replaceChild(frag, node);
+    });
+    return count;
+  }
+  // SECONDARY: select text in the preview, then 'Hide this'
+  var hideThisBtn = el('hide-this-btn'), hideThisHint = el('hide-this-hint');
+  if (hideThisBtn){
+    hideThisBtn.addEventListener('click', function(){
+      var sel = window.getSelection ? window.getSelection() : null;
+      var txt = sel ? (sel.toString() || '').trim() : '';
+      var canvas = el('text-canvas');
+      var inPreview = sel && sel.rangeCount && canvas && canvas.contains(sel.anchorNode);
+      if (!txt || !inPreview){
+        if (hideThisHint) hideThisHint.textContent = 'Select some text in the preview above first, then click Hide this.';
+        return;
+      }
+      var n = highlightTermEverywhere(txt);
+      if (sel.removeAllRanges) sel.removeAllRanges();
+      if (hideThisHint) hideThisHint.textContent = 'Added "' + txt + '" — hidden everywhere (' + n + ' match' + (n===1?'':'es') + ').';
+      announce('Hid the selected text "' + txt + '" everywhere.');
+    });
+  }
+  // findings-pane shortcut → focus the add-redaction input
+  var focusAdd = el('focus-add-redaction');
+  if (focusAdd) focusAdd.addEventListener('click', function(){ if (hideInput){ hideInput.focus();
+    hideInput.scrollIntoView({block:'center'}); } });
+
+  /* ---- IMAGE / scanned-document redaction: per-box review (Fix 6) ----
+     ticking a box DELETES the pixels under it (true removal); unticking keeps it in. */
+  function syncScanCount(){
+    var on = document.querySelectorAll('.scanchk:checked').length;
+    var c = el('scan-count'); if (c) c.textContent = on;
+    var bar = el('scan-bar'); if (bar) bar.classList.toggle('clear', on === document.querySelectorAll('.scanchk').length);
+  }
+  document.querySelectorAll('.scanitem').forEach(function(item){
+    var sid = item.getAttribute('data-sid');
+    var chk = item.querySelector('.scanchk');
+    var box = document.querySelector('.scanbox[data-sid="'+sid+'"]');
+    function refresh(active){
+      if (box) box.classList.toggle('removed', chk.checked);
+      if (active){
+        document.querySelectorAll('.scanitem').forEach(function(i){ i.classList.toggle('active', i===item); });
+        document.querySelectorAll('.scanbox').forEach(function(b){ b.classList.toggle('active', b===box); });
+      }
+      syncScanCount();
+    }
+    if (chk) chk.addEventListener('change', function(){ refresh(true);
+      announce(chk.checked ? 'Removed — the pixels under this box are deleted in the saved image.'
+                           : 'Kept in — no black box; this text stays in the picture.'); });
+    if (box){
+      box.addEventListener('click', function(){ chk.checked = !chk.checked; refresh(true);
+        announce(chk.checked ? 'Removed — the pixels under this box are deleted.' : 'Kept in.'); });
+      box.addEventListener('keydown', function(ev){ if (ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); box.click(); } });
+    }
+  });
+
+  // make the file-button label keyboard-activatable (Enter/Space)
+  document.querySelectorAll('.filebtn[role="button"], .dropzone[role="button"]').forEach(function(b){
+    b.addEventListener('keydown', function(ev){ if (ev.key==='Enter'||ev.key===' '){ ev.preventDefault();
+      var inp = b.querySelector('input[type=file]'); if (inp) inp.click(); } });
+  });
+
+  // start on Review (the centerpiece) as a TEXT document; export shown blocked by default
+  showStage('review');
+  setDocKind('text');
+  syncScanCount();
+})();
+</script>
+</body>
+</html>

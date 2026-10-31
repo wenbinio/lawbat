@@ -1,0 +1,17 @@
+{
+  "category": "age_band",
+  "jurisdiction": "SG",
+  "population_N": 4180000,
+  "entries": [
+    {"key": "0-14", "count": 502000, "prob": 0.120},
+    {"key": "15-64", "count": 2924000, "prob": 0.700},
+    {"key": "65+", "count": 753900, "prob": 0.180}
+  ],
+  "source_name": "SingStat / population.gov.sg, Population in Brief 2024 + Population Trends 2024 (median age 42.8; residents aged 65+ = 18.0% = 753,900 at end-June 2024)",
+  "source_url": "https://www.population.gov.sg/our-population/population-trends/overall-population/",
+  "license": "Singapore Open Data Licence v1.0 (underlying SingStat data.gov.sg datasets)",
+  "redistributable": true,
+  "redistribution_notes": "Only the 65+ band is a directly-published figure (18.0% / 753,900, end-June 2024). The 0-14 share (~12%) is an APPROXIMATION consistent with recent SG population pyramids; the 15-64 share is the residual (100% - 18.0% - ~12%). These coarse bands are NOT a substitute for a real single-year-of-age marginal: for DOB uniqueness you need per-birth-year cohort sizes, which require data.gov.sg dataset 'Singapore Residents By Single Year Of Age And Sex' (d_4bd9ffc2595acd61fd1a7f642caf8f36) — blocked from this environment. SHIP only the 65+ figure as authoritative; treat 0-14/15-64 as illustrative until the single-year table is pulled.",
+  "granularity_notes": "3 coarse age bands, national, residents only. INSUFFICIENT granularity for precise DOB k-estimation. A specific DOB ~ (1/365.25) x (1/birth-year-cohort-size); you need single-year-of-age counts (and ideally by sex) for that, which exist on data.gov.sg but were not fetchable here. The single-year table is the correct DROP-IN.",
+  "retrieved": "2026-06-26"
+}

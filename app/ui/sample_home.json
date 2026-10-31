@@ -1,0 +1,118 @@
+{
+  "schema": "firmos.view/0",
+  "generated_label": "Synthetic preview — no Rust view generator wired yet. Nothing here is a real matter.",
+  "sections": [
+    {
+      "title": "Overdue",
+      "caveats": [],
+      "cards": [
+        {
+          "title": "Notice of pre-trial conference — please confirm attendance and file the bundle by the date below.",
+          "subtitle": "registry@statecourts.example · Acme Holdings v Beta Corp",
+          "badges": [
+            { "kind": "origin", "label": "External" },
+            { "kind": "category", "label": "Court filing" }
+          ],
+          "due": { "kind": "overdue", "text": "Overdue by 2 days · 17/06/2026" },
+          "actions": [
+            { "action_id": "respond", "label": "Respond", "target": "doc:101|court-filing" },
+            { "action_id": "dismiss", "label": "Dismiss", "target": "doc:101" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Today",
+      "caveats": [],
+      "cards": [
+        {
+          "title": "Can you turn the share-purchase agreement around before our board call this afternoon?",
+          "subtitle": "priya@clientco.example · Project Condor",
+          "badges": [
+            { "kind": "origin", "label": "External" },
+            { "kind": "warning", "label": "Bcc detected" }
+          ],
+          "due": { "kind": "due_today", "text": "Due today" },
+          "actions": [
+            { "action_id": "review", "label": "Review", "target": "doc:102|review-cue" },
+            { "action_id": "dismiss", "label": "Dismiss", "target": "doc:102" }
+          ]
+        },
+        {
+          "title": "Limitation runs Friday on the Tan estate — have we issued yet? Please confirm today.",
+          "subtitle": "senior.partner@ourfirm.example · Estate of R. Tan",
+          "badges": [
+            { "kind": "origin", "label": "Internal" }
+          ],
+          "due": { "kind": "due_today", "text": "Due today" },
+          "actions": [
+            { "action_id": "respond", "label": "Respond", "target": "doc:103|deadline-cue" },
+            { "action_id": "dismiss", "label": "Dismiss", "target": "doc:103" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Next 7 days",
+      "caveats": [],
+      "cards": [
+        {
+          "title": "Our fee note for August is attached for settlement.",
+          "subtitle": "ap@vendor.example · Firm admin",
+          "badges": [
+            { "kind": "origin", "label": "External" }
+          ],
+          "due": { "kind": "due_soon", "text": "In 5 days · 24/06/2026" },
+          "actions": [
+            { "action_id": "review", "label": "Pay", "target": "doc:104|fee-note" },
+            { "action_id": "dismiss", "label": "Dismiss", "target": "doc:104" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "No date detected — deadline unclear",
+      "caveats": [
+        {
+          "id": "no-date-not-no-deadline",
+          "message": "No date was written, so the deadline is unclear — that does NOT tell you there is no deadline. Confirm your own diary.",
+          "dismissible": true
+        }
+      ],
+      "cards": [
+        {
+          "title": "We enclose our client’s response to your proposal. This correspondence is marked without prejudice.",
+          "subtitle": "counsel@otherfirm.example · Acme Holdings v Beta Corp",
+          "badges": [
+            { "kind": "origin", "label": "External" },
+            { "kind": "protected", "label": "Privileged / Without prejudice" },
+            { "kind": "warning", "label": "Hidden attachment" }
+          ],
+          "due": { "kind": "none", "text": "No date detected — deadline unclear" },
+          "actions": [
+            { "action_id": "review", "label": "Review", "target": "doc:105|protected" },
+            { "action_id": "dismiss", "label": "Dismiss", "target": "doc:105" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Low signal",
+      "caveats": [],
+      "cards": [
+        {
+          "title": "This week in legal tech: five things you might have missed.",
+          "subtitle": "updates@legaltechweekly.example",
+          "badges": [
+            { "kind": "origin", "label": "External" },
+            { "kind": "category", "label": "Newsletter" }
+          ],
+          "due": null,
+          "actions": [
+            { "action_id": "dismiss", "label": "File", "target": "doc:106" }
+          ]
+        }
+      ]
+    }
+  ]
+}

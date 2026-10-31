@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[package]
+name = "viewgen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# viewgen — the THIN host-wiring CLI for the ratified "cleaner structure": the
+# Python shell renders the Rust `view`-model over a SUBPROCESS/JSON boundary (NO
+# Rust HTTP server, NO pyo3). This bin seeds a SYNTHETIC matter through the real
+# trusted `Core`, runs the inbox engine's `build_worklist`, maps the worklist into
+# the inert `view::Section`s via `inbox::to_view`, wraps them in the host contract
+# root (`schema` / `generated_label` / `sections`), and prints the JSON to stdout.
+#
+# DEPENDENCY POLICY (CLAUDE.md non-negotiables): PURE COMPUTE, NO network / async /
+# TLS / model. This crate depends on exactly:
+#   - `runtime` — the trusted core (seed an InMemoryMatterStore + grant
+#                 matter.read:document + build a Core; mediated + audited reads).
+#                 SECURITY (C-1): viewgen is a DEV/demo CLI that seeds a deterministic
+#                 `InMemoryAudit::with_clock(FixedClock::..)` so the run is
+#                 reproducible; that dev-key constructor is gated behind runtime's
+#                 `dev-audit-key` feature, opted into HERE (visibly, never silently).
+#                 A real production host injects a secret via `InMemoryAudit::with_key`
+#                 and drops this feature.
+#   - `inbox`   — the email-triage engine + its `to_view` mapping.
+#   - `view`    — the inert view-model types, with the OPTIONAL `serde` feature ON
+#                 so they serialize (the default `view` build stays zero-dep).
+#   - `serde` / `serde_json` — deterministic JSON emission (pure compute; we write
+#                 the produced string to stdout ourselves). Verify with
+#                 `cargo tree -p viewgen`: no net/async/TLS deps.
+# Adding any other dependency here needs explicit sign-off.
+[dependencies]
+runtime = { path = "../runtime", features = ["dev-audit-key"] }
+inbox = { path = "../inbox" }
+view = { path = "../view", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

@@ -1,0 +1,19 @@
+{
+  "category": "given_name",
+  "jurisdiction": "US",
+  "population_N": null,
+  "entries": [
+    {"key": "Liam (M, 2023 births)", "count": 20802, "prob": null},
+    {"key": "Olivia (F, 2023 births)", "count": 15270, "prob": null},
+    {"key": "Noah (M, 2023 births, rank 2)", "count": null, "prob": null},
+    {"key": "Emma (F, 2023 births, rank 2)", "count": null, "prob": null},
+    {"key": "Oliver (M, 2023 births, rank 3)", "count": null, "prob": null}
+  ],
+  "source_name": "U.S. Social Security Administration, Popular Baby Names / 'Baby Names from Social Security Card Applications - National Data' (name, sex, year-of-birth, count; 100% sample from 1880 on)",
+  "source_url": "https://www.ssa.gov/oact/babynames/",
+  "license": "U.S. Government work / PUBLIC DOMAIN (17 U.S.C. 105). The SSA national names files are explicitly free for public download and reuse (data.gov: 'Baby Names from Social Security Card Applications - National Data').",
+  "redistributable": true,
+  "redistribution_notes": "SHIPPABLE and the cleanest given-name source. Only the #1 names' exact counts were captured here (Liam 20,802; Olivia 15,270 for 2023 births). The FULL per-name annual counts (national 'names.zip' = one CSV per year, e.g. yob2023.txt with every name occurring >=5 times, plus sex) are a single public-domain download and are the proper DROP-IN. CAVEAT for re-id: SSA names are indexed by YEAR OF BIRTH and BIRTH counts, so the raw frequencies are a BIRTH-cohort distribution, NOT the live-population given-name distribution; to get P(given name) for the current adult population you must sum across the relevant birth-year cohorts (and ideally adjust for mortality/migration). prob left null deliberately — needs the full file + a cohort model.",
+  "granularity_notes": "National, by sex, by single year of birth (births registered for an SSN). Excellent granularity for a name x age-cohort joint, but it is a births series, not a standing-population census of names. Strong QI once cohort-summed.",
+  "retrieved": "2026-06-26"
+}

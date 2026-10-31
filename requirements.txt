@@ -1,0 +1,26 @@
+# --- core extraction + search (runtime) ---
+pymupdf
+pillow               # PIL — runtime dep of the OCR image-redaction path (app/imageredact.py)
+python-docx
+openpyxl
+python-pptx
+extract-msg          # .msg (Outlook). NB: pulls red-black-tree-mod which needs a C build toolchain on some platforms
+fastapi
+uvicorn[standard]
+
+# --- desktop shell (runtime, Windows) ---
+pywebview            # native window via Edge WebView2 on Windows
+
+# --- only needed if the embedded Python's sqlite lacks FTS5 (see app/db.py) ---
+# pysqlite3-binary
+
+# --- optional, Tier-2 (OCR / PDF tools; entry points in app/ocr.py, pdftools.py) ---
+# pypdfium2          # permissive (BSD-3) PDF rasterizer for the OCR path
+# NB: Tesseract and qpdf are EXTERNAL binaries, NOT pip packages — the MSI bundles
+#     them under vendor/ (see to-read/packaging.md); app/vendor.py locates them.
+
+# --- packaging (Windows, build host only — NOT PyInstaller) ---
+# Embedded CPython + WiX Toolset MSI. See to-read/packaging.md.
+
+# --- build/test only (not shipped) ---
+# httpx              # FastAPI TestClient

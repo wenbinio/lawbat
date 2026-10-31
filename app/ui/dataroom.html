@@ -1,0 +1,39 @@
+<!doctype html>
+<!--
+  lawdataman — DATA ROOM (full-text search + Tools). A MODULE reached FROM the
+  Home (served at /app; the launcher / "open data room" links point here).
+
+  Self-contained + air-gapped: dataroom.css and dataroom.js are INLINED into this
+  page by the server at startup (app/web.py reads app/ui/*, substitutes the markers
+  below, escapes the token, and serves one document). It loads NO external resource
+  — no web fonts, no CDN, no <script src>, no <link rel=stylesheet href=http...>.
+  The page works on an air-gapped machine and inside the no-URL-bar pywebview window.
+
+  NOTE on the footer links: unlike the Home shell, this page DOES carry two external
+  anchors (target="_blank" hrefs to the AGPL-3.0 licence and to the source repo).
+  Those are NAVIGATION (the user clicks to open in their browser), not a resource
+  the page loads — so the air-gap guarantee holds. That is exactly why
+  _build_dataroom_page() in app/web.py uses a resource-load check rather than the
+  Home's blunt "no http(s):// anywhere" assert (see the doc-comment at web.py:210-213).
+
+  This is the TRUSTED HOST shell (not a sandboxed module), so host JS is allowed here.
+-->
+<html><head><meta charset="utf-8">
+<meta name="drr-token" content="__DRR_TOKEN__">
+<title>Lawbat — Data room</title>
+<!-- favicon: a black redaction bar, inline data: URI (nothing fetched — air-gap holds;
+     base64 so the no-http(s) page guards never see a scheme literal from the
+     svg's xmlns namespace IDENTIFIER, which is not a network reference) -->
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHJlY3QgeD0iMSIgeT0iNS41IiB3aWR0aD0iMTQiIGhlaWdodD0iNSIgcng9IjEuNSIvPjwvc3ZnPg==">
+<style>
+/* __DATAROOM_CSS__ */
+</style></head><body>
+<div id="app"></div>
+<footer class="lic">Local-only · no data leaves this machine ·
+  free software under <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener">AGPL-3.0</a> ·
+  <a href="https://github.com/wenbinio/lawdataman" target="_blank" rel="noopener">source code</a></footer>
+<script>
+/* __BASE_JS__ */
+/* __DATAROOM_JS__ */
+</script>
+</body></html>

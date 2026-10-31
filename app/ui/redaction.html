@@ -1,0 +1,1053 @@
+<!doctype html>
+<!--
+  Lawbat — Redaction reviewer (module #1). Reached from the Home launcher.
+
+  STAGED information architecture (ported from designs/redaction-reviewer.dc.html):
+    Document -> Detection -> Review -> Sensitive passages -> Export
+  A persistent stepper shows progress and GATES: Export is locked until Review's
+  uncertain ("Please review") items are addressed AND the Sensitive-passages stage is
+  acknowledged. The flow is wired to the REAL deterministic backend — no mock theater;
+  only UI that actually works is shown.
+
+  Self-contained + air-gapped: base.css (the SHARED design system), redaction.css and
+  redaction.js are INLINED into this page by the server at startup (app/web.py reads
+  app/ui/base.css + app/ui/redaction.*, escapes the token, serves one document). NO
+  external resources — no web fonts, no CDN, no <script src>. Works on an air-gapped
+  machine inside the no-URL-bar window. (base.css is INLINED via its dedicated style
+  marker, NEVER <link>'d — the air-gap guard would reject any external reference.)
+
+  This is the TRUSTED HOST shell (not a sandboxed module), so host JS is allowed. It
+  POSTs text to /api/redaction/{scan,scan-file,pdf-scan} (deterministic Rust engine via
+  the redact-cli bin), renders candidates by CONFIDENCE TIER (quick-confirm vs careful
+  review), surfaces app/privilege.py's sensitive PASSAGES for acknowledgement, and POSTs
+  the reviewer's accepted spans to /api/redaction/{apply,pdf-apply}. Every matter-derived
+  string is escaped via esc() before insertion. The text travels only the local pipe to
+  the bin — it never leaves the machine, and is not persisted or logged.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="drr-token" content="__DRR_TOKEN__">
+<title>Lawbat — Redaction reviewer</title>
+<!-- favicon: a black redaction bar, inline data: URI (nothing fetched — air-gap holds;
+     base64 so the strict no-http(s) page guard never sees a scheme literal from the
+     svg's xmlns namespace IDENTIFIER, which is not a network reference) -->
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHJlY3QgeD0iMSIgeT0iNS41IiB3aWR0aD0iMTQiIGhlaWdodD0iNSIgcng9IjEuNSIvPjwvc3ZnPg==">
+<style>
+/* __BASE_CSS__ */
+/* __REDACTION_CSS__ */
+</style>
+</head>
+<body>
+<div style="padding:10px 24px;background:#e7f3ef"><a href="/workspace">Open document workspace: combined text and image review →</a></div>
+<a class="skip" href="#main">Skip to main content</a>
+<!-- one shared live region announces cross-stage status to screen readers -->
+<div id="live" class="vh" role="status" aria-live="polite" aria-atomic="true"></div>
+
+<div class="app">
+  <!-- unified topbar: logo + page title + a live "tool ready / offline" chip -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">L</div>
+      <div class="titles">
+        <h1>Redaction reviewer</h1>
+        <div class="sub" id="docSub">Lawbat</div>
+      </div>
+    </div>
+    <div class="actions">
+      <!-- engine-health chip, set ON LOAD by the health probe (ready / offline) -->
+      <span id="engineChip" class="chip neutral" title="Checking the redaction tool&hellip;">Checking&hellip;</span>
+      <a class="back" href="/">&larr; Home</a>
+    </div>
+  </div>
+
+  <!-- ===== PERSISTENT STEPPER (progress + gates) =====
+       Document -> Detect -> Review -> Export -> Report. The former "Sensitive passages"
+       stage FOLDED INTO Review (its passages + the acknowledge gate now live in Review);
+       the Export hard-lock is UNCHANGED (canEnter('export') still requires a fresh scan +
+       reviewComplete() + passagesAllAcked()). "Report" is a real post-export stage. -->
+  <nav class="stepper" aria-label="Redaction stages">
+    <ol id="stepperOl">
+      <li class="step current" data-step="document">
+        <button type="button" class="btn-step" data-go="document" aria-current="step">
+          <span class="num" aria-hidden="true">1</span>
+          <span class="stxt"><span class="t">Document</span><span class="s" data-sub="document">Paste or upload</span></span>
+          <span class="gatemark" data-mark="document"></span>
+        </button>
+      </li>
+      <li class="conn" aria-hidden="true"></li>
+      <li class="step locked" data-step="detection">
+        <button type="button" class="btn-step" data-go="detection" aria-current="false">
+          <span class="num" aria-hidden="true">2</span>
+          <span class="stxt"><span class="t">Detect</span><span class="s" data-sub="detection">What to look for</span></span>
+          <span class="gatemark" data-mark="detection"></span>
+        </button>
+      </li>
+      <li class="conn" aria-hidden="true"></li>
+      <li class="step locked" data-step="review">
+        <button type="button" class="btn-step" data-go="review" aria-current="false">
+          <span class="num" aria-hidden="true">3</span>
+          <span class="stxt"><span class="t">Review</span><span class="s" data-sub="review">Findings &amp; sensitive passages</span></span>
+          <span class="gatemark" data-mark="review"></span>
+        </button>
+      </li>
+      <li class="conn" aria-hidden="true"></li>
+      <li class="step locked" data-step="export">
+        <button type="button" class="btn-step" data-go="export" aria-current="false" aria-disabled="true">
+          <span class="num" aria-hidden="true">&#128274;</span>
+          <span class="stxt"><span class="t">Export</span><span class="s" data-sub="export">Save redacted copy</span></span>
+          <span class="lockmark" data-mark="export">Locked</span>
+        </button>
+      </li>
+      <li class="conn" aria-hidden="true"></li>
+      <li class="step locked" data-step="report">
+        <button type="button" class="btn-step" data-go="report" aria-current="false" aria-disabled="true">
+          <span class="num" aria-hidden="true">5</span>
+          <span class="stxt"><span class="t">Report</span><span class="s" data-sub="report">What was saved</span></span>
+          <span class="lockmark" data-mark="report">Locked</span>
+        </button>
+      </li>
+    </ol>
+  </nav>
+
+  <!-- ===== STATUS CHIP STRIP (wired to real state; short + decisive) =====
+       Recurring, count-derived status. `Local only` is static; `OCR unavailable` reflects
+       the real OCR-engine probe; `N findings` is the last scan result; `Human review
+       required` shows while flagged passages are still un-acknowledged. Clicking a chip
+       reveals the full note (progressive disclosure). Cautionary DETAIL lives here + in the
+       footer strip, never in the working area. -->
+  <div class="chipbar" id="chipbar" role="status" aria-label="Tool status">
+    <span class="chip ok" title="Everything happens on this computer — nothing leaves this machine.">Local only</span>
+    <span class="chip high hidden" id="ocrChip"
+      title="The OCR engine (Tesseract) isn’t available, so scanned/photo PDFs can’t be read as images on this machine.">OCR unavailable</span>
+    <span class="chip neutral hidden" id="findingsChip" title="Potential identifiers found by the last scan.">0 findings</span>
+    <span class="chip med hidden" id="humanReviewChip"
+      title="Flagged sensitive passages are waiting for you to read and acknowledge them in Review.">Human review required</span>
+  </div>
+
+  <main id="main">
+
+  <!-- engine-unavailable banner: shown UP FRONT on load (health probe) AND on a failed
+       scan. Plain copy + what the user can still do. Populated by JS (esc'd). It sits
+       outside the stages so it is visible wherever the user is. -->
+  <div class="wrap" id="engineNoteWrap"><div id="engineNote"></div></div>
+
+  <!-- BATCH CONTEXT BAR — shown ONLY while a batch file is loaded into the review flow.
+       Says which file of how many, and offers "Folder list" (back to the file list) and
+       "Mark reviewed & next" (capture this file's decisions + advance). Built/toggled by
+       app/ui/redaction.batch.js; hidden entirely in the single-file flow. -->
+  <div class="wrap" id="batchBarWrap" hidden>
+    <div class="batch-bar" role="status" aria-live="polite">
+      <span class="batch-bar-label" id="batchBarLabel"></span>
+      <span class="batch-bar-actions">
+        <button type="button" id="batchBackBtn" class="btn ghost sm">&larr; Folder list</button>
+        <button type="button" id="batchMarkBtn" class="btn sm" disabled aria-disabled="true">Mark reviewed &amp; next file</button>
+      </span>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       STAGE 1 — DOCUMENT (upload / paste)
+       ================================================================ -->
+  <section class="stage show" id="stage-document" aria-labelledby="h-document">
+    <div class="wrap">
+      <h2 id="h-document" class="vh">Stage 1: Document</h2>
+
+      <!-- honest-framing, COMPRESSED to progressive disclosure: a decisive `First pass only`
+           chip + one-line summary is always visible; the full cautionary text (the required
+           lawyer-review sentence PLUS the original banner copy, verbatim) is RELOCATED into
+           the disclosure body — never deleted, never weakened. -->
+      <details class="disclosure firstpass">
+        <summary>
+          <span class="chip med">First pass only</span>
+          <span class="dsum">Finds likely redactions &mdash; a lawyer must review the final document.</span>
+          <span class="dwhy" aria-hidden="true">Why?</span>
+        </summary>
+        <div class="dbody">
+          <p>This tool helps identify likely redactions, but a lawyer must review the final document before relying on it.</p>
+          <p><b>This does a thorough first pass &mdash; it never makes a document &ldquo;safe to send&rdquo;.</b></p>
+          <p>It reliably finds common things like emails, phone numbers and ID numbers. It can
+            still miss things only a person would notice (for example, &ldquo;the only deal
+            closing this quarter&rdquo;). <b>Always read the result yourself before you rely on it.</b></p>
+        </div>
+      </details>
+
+      <section class="card">
+        <div class="section-h"><h2>Start with your document</h2></div>
+        <p class="help mt0" id="documentEmpty">Choose a document to begin.</p>
+        <p class="help mt0">Paste text below, or upload a file. Everything happens on this
+          computer &mdash; <b>nothing leaves this machine.</b></p>
+
+        <div class="field" style="margin-top:14px">
+          <label class="lbl" for="input">Paste text, or upload a file</label>
+          <textarea id="input" spellcheck="false"
+            placeholder="Paste a document, an email, or any text here&hellip; Nothing leaves this machine."></textarea>
+        </div>
+
+        <!-- persistent paste hint (does NOT flash-and-vanish): set by JS, reflects state -->
+        <p id="pasteHint" class="help">Paste some text above, or upload a file, then continue.</p>
+
+        <div class="divider"></div>
+
+        <!-- drag-drop dropzone, wired to the EXISTING upload path with hover feedback -->
+        <div class="dropzone" id="dropzone" tabindex="0" role="button"
+             aria-label="Drag a file here, or activate to choose a file">
+          <div class="dz-ic" aria-hidden="true">&#128196;</div>
+          <div class="dz-big">Drag a file here, or use &ldquo;Upload a file&rdquo;</div>
+          <p class="filetypes">We can read
+            <code>.pdf</code> <code>.docx</code> <code>.txt</code> <code>.csv</code>
+            <code>.eml</code> <code>.msg</code> <code>.md</code>.
+            PDFs keep their layout; other files have their text pulled out for review.
+            <br><span class="dz-size">Files up to about <b>10 MB</b>. Larger files: copy the text and paste it here instead.</span></p>
+          <label class="filebtn" style="margin-top:10px">Upload a file
+            <input id="file" type="file" accept=".txt,.md,.csv,.eml,.msg,.docx,.pdf" hidden>
+          </label>
+        </div>
+
+        <!-- "Try it with a sample document": one click loads a made-up practice PDF (fake
+             names/numbers, synthesized on the server, nothing real) and runs it through the
+             exact same upload->scan flow a user file takes. Lets a first-time tester see the
+             whole reviewer without finding a file of their own. -->
+        <div class="sample-row">
+          <button type="button" id="sampleBtn" class="btn ghost sm">Try it with a sample document</button>
+          <span class="hint" id="sampleHint">Loads a made-up practice file (no real data) so you can see how it works.</span>
+        </div>
+
+        <!-- echoed filename + extract note + low_text / unmapped_fonts caveats (esc'd by JS) -->
+        <div id="fileNote"></div>
+
+        <!-- scanned/image-PDF warning (LOUD): set by JS only when a real pdf-scan reports
+             low_text. Honest copy + the route the user can take (OCR image redaction). -->
+        <div id="scanWarn"></div>
+
+        <!-- ===== BATCH (WHOLE FOLDER) affordance ===== -->
+        <div class="divider"></div>
+        <div class="batch-row">
+          <button type="button" id="chooseFolderBtn" class="btn ghost sm">Choose a folder&hellip;</button>
+          <span class="hint" id="chooseFolderHint">Redact a whole folder &mdash; each file is scanned, then you review and save them one at a time. Nothing leaves this machine.</span>
+        </div>
+
+        <div class="divider"></div>
+        <div class="btn-row">
+          <button id="toDetectionBtn" class="btn primary" data-primary="1" disabled aria-disabled="true">Continue to detection settings &rarr;</button>
+          <span class="hint" id="docContinueHint">Add a document to continue.</span>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           BATCH PANEL — the folder's file list, per-file status, and batch export.
+           Hidden until a folder is chosen. Persists on the Document stage so the user
+           can return here (a batch progress strip + a row per file). Clicking a file row
+           loads it into the EXISTING per-file review flow (full reset between files, so
+           one file's decisions never leak into another). Built/updated by
+           app/ui/redaction.batch.js.
+           ================================================================ -->
+      <section class="card batch-panel hidden" id="batchPanel" aria-labelledby="h-batch">
+        <div class="section-h">
+          <h2 id="h-batch">Folder review</h2>
+          <span class="sub" id="batchFolderName"></span>
+        </div>
+
+        <!-- estimate + confirm (shown after enumerate, before the queue scan) -->
+        <div id="batchEstimate" class="batch-estimate"></div>
+
+        <!-- batch progress strip (scanned / total / errors / reviewed) -->
+        <div class="batch-strip hidden" id="batchStrip" role="status" aria-live="polite"></div>
+
+        <!-- the per-file list (rows built by JS; each cleartext filename esc'd) -->
+        <div id="batchList" class="batch-list"></div>
+
+        <!-- batch actions: export all reviewed + the result -->
+        <div class="row apply-row batch-actions hidden" id="batchActions">
+          <button type="button" id="batchExportBtn" class="btn primary" disabled aria-disabled="true">Export reviewed files</button>
+          <button type="button" id="batchCancelBtn" class="btn ghost sm">Close folder</button>
+          <span class="hint" id="batchExportHint"></span>
+        </div>
+        <div id="batchExportResult" class="summary hidden" style="margin-top:12px"></div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       STAGE 2 — DETECTION (settings, then scan)
+       ================================================================ -->
+  <section class="stage" id="stage-detection" aria-labelledby="h-detection">
+    <div class="wrap">
+      <h2 id="h-detection" class="vh">Stage 2: Detect</h2>
+
+      <!-- honest-framing, COMPRESSED to a disclosure (text relocated verbatim, never removed). -->
+      <details class="disclosure firstpass">
+        <summary>
+          <span class="chip med">First pass only</span>
+          <span class="dsum">Finds common identifiers plus the names you list &mdash; still read the result.</span>
+          <span class="dwhy" aria-hidden="true">Why?</span>
+        </summary>
+        <div class="dbody">
+          <p><b>This does a thorough first pass.</b></p>
+          <p>It reliably finds common things like emails, phone numbers and ID numbers, plus the
+            names you list below. It can still miss things only a person would notice.
+            <b>Always read the result yourself before you rely on it.</b></p>
+        </div>
+      </details>
+
+      <!-- OPT-IN detection settings: jurisdiction packs + names + recognizers + context.
+           Default = none (the built-in identifiers only). Selection persists in
+           localStorage and is sent on every scan AND apply. (Progressive disclosure kept
+           from the foundation: the summary line + a collapsible <details>.) -->
+      <details class="card opts" id="optsCard" open>
+        <summary>Detection settings <span class="opts-sum" id="optsSummary"></span></summary>
+        <div class="opts-body">
+          <fieldset class="optgrp">
+            <legend>Jurisdiction national-ID packs</legend>
+            <!-- Quick group selectors: "All" ticks every jurisdiction below; "Default"
+                 restores whatever was actually checked when this page loaded (a returning
+                 user's own saved choices, or none — see captureGroupDefault() in
+                 redaction.core.js). Deliberately NO "None" button — see the code comment by
+                 GROUP_BOXES for why. -->
+            <div class="grp-actions">
+              <button type="button" class="link" id="locAllBtn" aria-label="Select all jurisdictions">All</button>
+              <button type="button" class="link" id="locDefaultBtn" aria-label="Restore default jurisdictions">Default</button>
+            </div>
+            <p class="opt-help">Off by default. Turn on the jurisdictions you work in to also
+              flag their national IDs (e.g. Singapore NRIC/UEN, US SSN).</p>
+            <div class="opt-row">
+              <label><input type="checkbox" class="loc" value="sg"> Singapore</label>
+              <label><input type="checkbox" class="loc" value="us"> United States</label>
+              <label><input type="checkbox" class="loc" value="uk"> United Kingdom</label>
+              <label><input type="checkbox" class="loc" value="au"> Australia</label>
+              <label><input type="checkbox" class="loc" value="ca"> Canada</label>
+            </div>
+          </fieldset>
+          <fieldset class="optgrp">
+            <legend>Party / names to redact</legend>
+            <p class="opt-help" id="termsEmpty">Add names or terms you already know must be redacted.</p>
+            <p class="opt-help">The known names a detector can&rsquo;t guess &mdash; people,
+              counterparties, project codenames, reference numbers (one per line). Each is matched
+              literally and case-insensitively wherever it appears, so a bare
+              &ldquo;Massimo Greco&rdquo; with no title is caught. This is the reliable way to
+              redact a known name.</p>
+            <textarea id="termsBox" class="terms-box" rows="4" spellcheck="false"
+              placeholder="Peter Thomas Schwicht&#10;Olivia Moessner&#10;A.B (Pte) Ltd"></textarea>
+            <!-- IMPORT a names list (.csv/.txt). The parsed terms are MERGED into the textarea
+                 above (which stays the source of truth — the user always sees the full list);
+                 the feedback line reports imported / duplicates skipped / dropped. -->
+            <div class="terms-import" style="margin-top:8px">
+              <label class="filebtn sm">Import list&hellip;
+                <input id="termsImport" type="file" accept=".csv,.txt" hidden>
+              </label>
+              <span class="hint" id="termsImportHint">Import a .csv or .txt list of names &mdash; they&rsquo;re added to the box above.</span>
+            </div>
+            <p class="opt-help"><span id="termsSummary"></span></p>
+          </fieldset>
+          <fieldset class="optgrp">
+            <legend>Keep (never redact)</legend>
+            <p class="opt-help">Names or values to leave visible &mdash; e.g. your client&rsquo;s
+              own name or IC. Anything here is still <b>found and shown</b> in Review, but marked
+              &ldquo;kept&rdquo; and left in the document (you can overturn any of them with one
+              click). Keeping is your choice &mdash; the tool still shows you what it found. One
+              per line.</p>
+            <textarea id="keepBox" class="terms-box" rows="3" spellcheck="false"
+              placeholder="Acme Capital Pte Ltd&#10;S1234567A"></textarea>
+            <p class="opt-help"><span id="keepSummary"></span></p>
+          </fieldset>
+          <fieldset class="optgrp">
+            <legend>Recognizers</legend>
+            <!-- Quick group selectors. "All" here also turns on the closely-related opt-in
+                 detection toggles below (Context, LEI, Compliance profile) — they are all
+                 "what should the scan look for" controls, just split into their own
+                 <fieldset>s for their individual explanatory copy — INCLUDING opt-ins like
+                 LEI: an explicit "All" click is explicit consent, and more detection is
+                 always the recall-safe direction. (The Aggressive SG NRIC net stays OUT of
+                 "All": it is an advisory-only, higher-false-positive net the user must
+                 deliberately opt into for itself, not a plain recognizer.) "Default"
+                 restores every one of those toggles to its captured page-load state.
+                 Deliberately NO "None" button: a one-click deselect-everything is the MISS
+                 direction — an empty selection still "succeeds", scanning to a
+                 clean-looking document with nothing flagged, so a reviewer who trusts the
+                 report never learns detection was silently switched off. "All" only ever
+                 ADDS detection; there is no equivalent one-click way to blindly remove it. -->
+            <div class="grp-actions">
+              <button type="button" class="link" id="recAllBtn" aria-label="Select all recognizers and detection opt-ins">All</button>
+              <button type="button" class="link" id="recDefaultBtn" aria-label="Restore default recognizer and opt-in settings">Default</button>
+            </div>
+            <p class="opt-help">All on by default (best recall). Untick one to STOP flagging it
+              for this document &mdash; this reduces what gets found, so use it only for a
+              built-in that is pure noise on your corpus.
+              <span class="opt-note">All / Default here also cover Context, LEI and the
+              Compliance profile below.</span></p>
+            <div class="opt-row">
+              <label><input type="checkbox" class="bi" value="email" checked> Email</label>
+              <label><input type="checkbox" class="bi" value="phone" checked> Phone</label>
+              <label><input type="checkbox" class="bi" value="id" checked> ID
+                <span class="opt-note">broad &mdash; turn off for ID-code-heavy docs</span></label>
+              <label><input type="checkbox" class="bi" value="name" checked> Name</label>
+              <label><input type="checkbox" class="bi" value="credit-card" checked> Credit card</label>
+              <label><input type="checkbox" class="bi" value="iban" checked> IBAN</label>
+              <label><input type="checkbox" class="bi" value="bic" checked> BIC/SWIFT</label>
+              <label><input type="checkbox" class="bi" value="isin" checked> ISIN</label>
+              <label><input type="checkbox" class="bi" value="ip" checked> IP</label>
+              <label><input type="checkbox" class="bi" value="url" checked> URL</label>
+              <label><input type="checkbox" class="bi" value="address" checked> Address</label>
+            </div>
+            <p class="opt-help">A compliance profile that requires a recognizer (e.g. PCI needs
+              the card recognizer) keeps it on even if unticked here.</p>
+          </fieldset>
+          <fieldset class="optgrp">
+            <legend>Context-sensitive detection</legend>
+            <label class="opt-line"><input type="checkbox" id="ctxToggle">
+              Also flag dates of birth, undashed SSNs and account/record numbers when they
+              sit near a matching keyword.</label>
+            <p class="opt-help warn">More recall, but more false positives &mdash; review each
+              careful-review item.</p>
+          </fieldset>
+          <fieldset class="optgrp">
+            <legend>Legal Entity Identifiers (LEI)</legend>
+            <label class="opt-line"><input type="checkbox" id="leiToggle">
+              Also flag ISO 17442 Legal Entity Identifiers (20-character entity codes,
+              checksum-validated).</label>
+            <p class="opt-help">Off by default &mdash; a public LEI is borderline personal data,
+              so flagging it is your call. The checksum keeps false positives low.</p>
+          </fieldset>
+          <fieldset class="optgrp">
+            <legend>Aggressive SG NRIC (advisory)</legend>
+            <label class="opt-line"><input type="checkbox" id="sgNricLooseToggle">
+              Also surface lowercase / odd-length / spaced NRIC-shaped tokens, and digit runs
+              next to an NRIC/FIN/IC label, as POSSIBLE.</label>
+            <p class="opt-help warn">Review-only, never redacted unless you tick them. Off by
+              default &mdash; a wide net for NRIC-shaped text the precise NRIC recognizer skips.
+              A real NRIC is still caught and redacted by default; these are the EXTRA possibles.</p>
+          </fieldset>
+          <fieldset class="optgrp">
+            <legend>Organisation names</legend>
+            <label class="opt-line"><input type="checkbox" id="orgToggle">
+              Also flag company / firm / fund names &mdash; names ending in a legal suffix
+              (Pte Ltd, LLP, Inc, plc&hellip;) or introduced by an organisation keyword.</label>
+            <p class="opt-help">Off by default. Every hit is a careful-review item, never
+              auto-redacted. A person&rsquo;s name always wins over an overlapping organisation
+              match, so a director is redacted as a name, not a company.</p>
+          </fieldset>
+          <fieldset class="optgrp">
+            <legend>Full addresses</legend>
+            <label class="opt-line"><input type="checkbox" id="addrFullToggle">
+              Also flag multi-line postal addresses (street + unit + postal code), not just the
+              postcode the built-in address recognizer already catches.</label>
+            <p class="opt-help warn">Off by default. Broader reach means more to review. In the
+              labelled-placeholder export a person who sits inside an address (e.g. &ldquo;Dr
+              &hellip; House&rdquo;) can be labelled [address] &mdash; still redacted, never a
+              leak, but read the placeholders before you send.</p>
+          </fieldset>
+          <fieldset class="optgrp">
+            <legend>Compliance profile</legend>
+            <label class="opt-line"><input type="checkbox" class="prof" value="pci-dss-cardholder">
+              PCI-DSS cardholder data &mdash; forces the card (Luhn) recognizer on.</label>
+            <p class="opt-help">Deterministic matching cannot cover cardholder names or free-text
+              account references &mdash; those stay your review responsibility.</p>
+          </fieldset>
+        </div>
+      </details>
+
+      <!-- scan-in-progress working state (spinner). Shown by JS while a scan runs. -->
+      <section id="scanning" class="card hidden">
+        <div class="working">
+          <span class="spinner"></span>
+          <div>
+            <div><b id="scanningTitle">Scanning&hellip;</b></div>
+            <div class="sub">Looking for emails, phone numbers, ID numbers and the names you listed.</div>
+          </div>
+        </div>
+        <p class="help" style="margin-top:12px">This usually takes a few seconds. Nothing leaves this computer.</p>
+      </section>
+
+      <div class="card">
+        <div class="btn-row">
+          <button id="scanBtn" class="btn primary" data-primary="1">Scan this document &rarr;</button>
+          <button class="btn ghost" data-go="document">&larr; Back</button>
+          <span id="scanHint" class="hint">Rule-based &mdash; the same input always finds the same things.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       STAGE 3 — REVIEW (two-pane: text preview + findings) — CENTERPIECE
+       ================================================================ -->
+  <section class="stage" id="stage-review" aria-labelledby="h-review">
+    <div class="wrap wide">
+      <h2 id="h-review" class="vh">Stage 3: Review findings &amp; sensitive passages</h2>
+
+      <!-- honest-framing, COMPRESSED to a disclosure (text relocated verbatim). -->
+      <details class="disclosure firstpass">
+        <summary>
+          <span class="chip med">First pass only</span>
+          <span class="dsum">Review each finding before export &mdash; you decide what&rsquo;s removed.</span>
+          <span class="dwhy" aria-hidden="true">Why?</span>
+        </summary>
+        <div class="dbody">
+          <p><b>This does a thorough first pass.</b></p>
+          <p>Detection is rule-based &mdash; no AI guessing &mdash; so it can miss things a person would
+            catch. Use <b>Add a redaction</b> for anything it missed, and remove any wrong
+            match. You decide what&rsquo;s removed.</p>
+        </div>
+      </details>
+
+      <div class="review2">
+
+        <!-- ============ LEFT: DOCUMENT PREVIEW ============
+             SCOPE (Phase 1): the on-page preview is TEXT-ONLY. A text document shows a
+             live, in-place preview with highlights; ticking a finding replaces the value
+             with its marker LIVE. A PDF document shows a LIST-ONLY note instead — there is
+             NO faux PDF page canvas (the engine has no PDF visual-coordinate map yet). -->
+        <div class="preview-pane">
+          <div class="preview-head">
+            <h2>Document preview</h2>
+            <span class="chip neutral" id="previewKind">Text document</span>
+          </div>
+
+          <!-- live-preview affordance note (text path only). Hidden for a PDF. -->
+          <div class="preview-note" id="previewLiveNote">
+            <span class="ic" aria-hidden="true">&#9998;</span>
+            <span>This shows the <b>original</b> words. <b>Tick a finding</b> in the list (or click a
+              highlight) to see it redacted right here &mdash; untick to bring it back.</span>
+          </div>
+
+          <!-- ===== TEXT-DOCUMENT preview: live, in-place, with highlights (built by JS) ===== -->
+          <div id="pvText" class="pageframe">
+            <div class="pagecanvas" id="textCanvas"
+                 style="min-height:auto;padding:22px 26px;font-size:var(--t-ui);line-height:2.0"></div>
+          </div>
+
+          <!-- ===== PDF-DOCUMENT: on-page VISUAL preview (Phase 2). The rendered page
+               images with highlight boxes over each detected value are built by JS into
+               #pdfPreview after a PDF scan (pdf-preview route). It is DISPLAY-ONLY —
+               ticking a finding in the list dims its box (kept, not removed); the
+               accept/reject + save still drive the findings list. When the preview is
+               unavailable (preview:false, or the renderer is missing) JS falls back to
+               the list-only note below. ===== -->
+          <div id="pdfPreview" class="pageframe hidden" style="padding:0"></div>
+
+          <!-- ===== PDF-DOCUMENT: LIST-ONLY note (the FALLBACK when the visual preview is
+               unavailable, and shown while it loads) ===== -->
+          <div id="pvPdfNote" class="pageframe hidden" style="padding:0">
+            <div class="empty" style="border:0;text-align:left;padding:22px 24px">
+              <div class="ic" aria-hidden="true">&#128203;</div>
+              <b>PDF review is done from the findings list</b>
+              <p style="margin-top:4px">A PDF keeps its original page layout, so Lawbat reviews it as a
+                <b>list of findings</b> on the right. Each item still shows the surrounding words so you can
+                judge it. When you save, matched text is <b>removed from the file itself</b>
+                (true byte-removal, not a cover).
+                <br><span class="hint" id="pdfPreviewNote">Loading the on-page preview&hellip;</span></p>
+            </div>
+          </div>
+
+          <!-- ADD A REDACTION — non-technical, find-and-replace style. Wired to the engine's
+               reliable TERMS feature: type a name -> it is added to the redact list + a
+               re-scan finds every occurrence. -->
+          <div class="card add-redaction" style="margin-top:14px">
+            <div class="ar-head">
+              <span class="ic" aria-hidden="true">&#10133;</span>
+              <div><b>Add a redaction</b>
+                <p class="help mt0">For a name or word the scan missed &mdash; you decide what&rsquo;s removed.</p></div>
+            </div>
+            <label class="lbl" for="hideEverywhere" style="margin-top:12px">Type a word or name to hide everywhere</label>
+            <div class="ar-row">
+              <input class="text-input" id="hideEverywhere" type="text"
+                placeholder="e.g. a director&rsquo;s name, a deal codename, a reference">
+              <button class="btn" id="hideEverywhereBtn">Hide everywhere</button>
+            </div>
+            <p class="help" id="hideEverywhereHint">Every exact match is removed throughout the document.
+              The tool matches text exactly &mdash; no AI, no guessing.</p>
+          </div>
+
+          <!-- legend for the preview highlight colours (text path) -->
+          <div class="preview-legend" id="previewLegend"
+               aria-label="Highlight colours: green = ready to confirm, amber = please review, grey strikethrough = removed from the list">
+            <span class="lg"><span class="sw ready"></span> Ready to confirm</span>
+            <span class="lg"><span class="sw review"></span> Please review</span>
+            <span class="lg"><span class="sw rejected"></span> Removed from list</span>
+          </div>
+        </div>
+
+        <!-- ============ RIGHT: FINDINGS list (tiers) ============ -->
+        <div class="findings-pane">
+
+          <p class="help mt0" id="reviewEmpty">Review each finding before export.</p>
+
+          <!-- prominent UNRESOLVED count strip (set by JS from real candidate state) -->
+          <div class="unresolved-bar" id="unresolvedBar" role="status">
+            <span class="big" id="unresolvedN">0</span>
+            <div class="ub-txt">
+              <b id="unresolvedTitle">items still to review</b>
+              <div class="s" id="unresolvedSub"></div>
+            </div>
+          </div>
+
+          <!-- review: populated after a scan -->
+          <section id="review" class="card hidden">
+            <div class="summary" id="summary"></div>
+            <!-- WARN-ON-DROP: surfaced when a user "names to redact" TERM was too long to
+                 redact (over the byte cap) and was NOT sent to the engine — so the lawyer is
+                 told instead of the name being silently un-redacted. Populated by JS; hidden
+                 when nothing was dropped. role=alert so a screen reader announces it. -->
+            <div id="termDrops" class="term-drops hidden" role="alert"></div>
+
+            <div class="tier" id="tier1wrap">
+              <div class="tier-h">
+                <div class="left"><span class="marker ready" aria-hidden="true"></span>
+                  <h2>Ready to confirm <span class="count" id="t1count">0</span></h2></div>
+                <div class="tier-actions">
+                  <button id="t1all" class="link">Select all</button>
+                  <button id="t1none" class="link">Select none</button>
+                </div>
+              </div>
+              <p class="tier-desc">High-confidence matches (checksum-valid IDs, shapes with a
+                nearby keyword). Pre-selected &mdash; glance, then apply.</p>
+              <div id="tier1"></div>
+            </div>
+
+            <div class="tier" id="tier2wrap">
+              <div class="tier-h">
+                <div class="left"><span class="marker todo" aria-hidden="true"></span>
+                  <h2>Please review <span class="count" id="t2count">0</span></h2></div>
+                <div class="tier-actions">
+                  <button id="t2all" class="link">Keep all</button>
+                  <button id="t2none" class="link">Dismiss all</button>
+                </div>
+              </div>
+              <p class="tier-desc">Lower-confidence matches. <b>Not</b> pre-selected &mdash;
+                decide each one (keep or dismiss). <b>These are what&rsquo;s left to do.</b></p>
+              <div id="tier2"></div>
+            </div>
+
+            <!-- Replacement-style control is chosen at EXPORT; the seam stays here, empty +
+                 hidden, so the page is byte-faithful to the single-style review list. -->
+            <div id="replStyleSeam" class="hidden" aria-hidden="true"></div>
+
+            <div class="divider"></div>
+            <div class="row apply-row">
+              <button id="ocrBtn" class="btn primary hidden">OCR &amp; redact scanned PDF</button>
+              <span id="applyHint" class="hint"></span>
+            </div>
+            <!-- legacy apply button retained but hidden: the staged flow applies at Export.
+                 Keeping the id avoids a null-deref; it is never shown in the staged IA. -->
+            <button id="applyBtn" class="btn primary hidden" aria-hidden="true">Apply redaction</button>
+          </section>
+
+        </div><!-- /findings-pane -->
+      </div><!-- /review2 -->
+
+      <!-- ================================================================
+           FOLDED-IN: sensitive passages + re-identification exposure. This was the
+           standalone "Sensitive passages" stage; it now lives INSIDE Review. The
+           acknowledge gate + its Export hard-lock are UNCHANGED — Export stays locked
+           until EVERY flagged passage is acknowledged AND the careful-review items are
+           decided (canEnter('export') is byte-identical in semantics). Cautionary copy
+           is RELOCATED into disclosures, never removed or weakened.
+           ================================================================ -->
+      <div class="review-sensitive" id="reviewSensitive">
+
+        <!-- gate instruction, COMPRESSED to a disclosure (chip visible; full text relocated).
+             The chip is wired to REAL state by updateStatusChips() (redaction.gates.js, the
+             SAME place that toggles the top-bar #humanReviewChip): hidden when nothing was
+             flagged, "Acknowledged" once every passage is ticked, otherwise this label. -->
+        <details class="disclosure gate" open>
+          <summary>
+            <span class="chip med" id="humanReviewSummaryChip">Human review required</span>
+            <span class="dsum">Read each flagged passage below, then acknowledge it &mdash; Export stays locked until you do.</span>
+            <span class="dwhy" aria-hidden="true">Why?</span>
+          </summary>
+          <div class="dbody">
+            <p><b>You must read these before you can export.</b></p>
+            <p>These passages aren&rsquo;t identifiers, so they&rsquo;re <b>not removed automatically</b> &mdash;
+              but they are often sensitive or could re-identify someone even with names gone. Read each,
+              then tick <b>&ldquo;I&rsquo;ve reviewed this&rdquo;</b>. Export stays locked until they are acknowledged.</p>
+          </div>
+        </details>
+
+        <!-- ===== RE-IDENTIFICATION EXPOSURE METER (before -> after tracker) =====
+             A document-level aggregate of the SAME quasi-identifier signals the per-passage
+             flags use (app/privilege.py: score_reidentification). Shows the BEFORE band+index,
+             the AFTER band+index once a redaction is applied, the delta, and which quasi-
+             identifier CATEGORIES still survive. EVERY figure here is a COUNT-DERIVED integer
+             (no document cleartext) — but JS still esc()'s all rendered strings. The caption
+             is PERMANENT (relocated into a disclosure, never deleted): this is an EXPOSURE
+             indicator, NOT a safety / anonymity guarantee. Populated by renderReidMeter();
+             hidden until a scan runs. -->
+        <section id="reidMeter" class="card reid-card hidden" aria-labelledby="reidMeterH">
+          <div class="section-h">
+            <h2 id="reidMeterH">&#127919; Re-identification exposure
+              <span class="chip" id="reidBandChip">&mdash;</span></h2>
+          </div>
+          <details class="disclosure">
+            <summary>
+              <span class="dsum">What this indicator means &mdash; and does not mean.</span>
+              <span class="dwhy" aria-hidden="true">Details</span>
+            </summary>
+            <div class="dbody">
+              <p class="reid-caption">Re-identification <b>exposure indicator</b> &mdash; higher means
+                more quasi-identifiers (dates, roles, locations, organisations) a reader could
+                triangulate to work out <b>who</b> a passage is about, even after names and IDs are
+                removed. <b>This is NOT an anonymity guarantee and NOT a measure of whether the
+                document is safe to send.</b> It is a prompt to read the surviving context yourself.</p>
+            </div>
+          </details>
+          <!-- The before/after gauges + delta + surviving-category breakdown are built by JS.
+               reidBars holds two labelled meter bars (before, after); reidDelta the change;
+               reidSurvive the "names removed — but N dates, M roles … remain" breakdown. -->
+          <div class="reid-grid" id="reidBars"></div>
+          <div class="reid-delta" id="reidDelta"></div>
+          <div class="reid-survive" id="reidSurvive"></div>
+        </section>
+
+        <!-- Confidentiality / sensitive-content review: SURFACE-ONLY highlights of
+             likely-sensitive passages for the reviewer's judgment, from app/privilege.py. NO
+             auto-redaction — read & decide. An ACK checkbox per passage is the real export gate. -->
+        <section id="passwrap" class="card priv-card">
+          <div class="section-h">
+            <h2>&#128065; Confidentiality / sensitive-content review <span class="count" id="passcount">0</span></h2>
+            <span class="chip med" id="ackCount">0 of 0 acknowledged</span>
+          </div>
+          <details class="disclosure">
+            <summary>
+              <span class="dsum">Surface for your judgment &mdash; nothing here is removed automatically.</span>
+              <span class="dwhy" aria-hidden="true">Details</span>
+            </summary>
+            <div class="dbody">
+              <p class="pass-caption">These passages were flagged deterministically (confidential or
+                otherwise sensitive wording, or a dense cluster of quasi-identifiers that can
+                <b>re-identify</b> someone even after names are removed). This is a <b>surface for
+                your judgment</b> &mdash; nothing here is redacted or removed, and a flag does
+                <b>not</b> make the text safe to send. Read each one and decide; use the redaction
+                in <b>Review</b> to remove identifiers within.</p>
+            </div>
+          </details>
+          <!-- toggle kept (foundation wiring + test) — hides/shows the flagged list -->
+          <label class="passtoggle" style="margin-bottom:10px"><input type="checkbox" id="passToggle" checked>
+            Highlight sensitive passages</label>
+          <div id="passages"></div>
+
+          <div class="divider"></div>
+          <div class="banner ok hidden" id="ackDone">
+            <span class="ic" aria-hidden="true">&#10003;</span>
+            <div class="body">
+              <b>All flagged passages acknowledged.</b>
+              <p>You&rsquo;ve confirmed you read them. Export is now unlocked &mdash; redacting them is still
+                your call, in the findings above.</p>
+            </div>
+          </div>
+          <p class="hint" id="ackHint">Tick each box above to continue.</p>
+        </section>
+      </div><!-- /review-sensitive -->
+
+      <div class="divider"></div>
+      <!-- ONE primary action for Review: Continue to Export. It is gated on BOTH real gates
+           (careful-review complete AND all sensitive passages acknowledged) — the SAME
+           conditions canEnter('export') enforces, so the hard-lock is unchanged. -->
+      <div class="btn-row">
+        <button class="btn ghost" data-go="detection">&larr; Detection</button>
+        <button id="toExportBtn" class="btn primary" data-primary="1" data-go="export" disabled aria-disabled="true">Continue to Export &rarr;</button>
+        <span class="hint" id="reviewNextHint"></span>
+      </div>
+    </div><!-- /wrap.wide -->
+  </section>
+
+  <!-- ================================================================
+       STAGE 5 — EXPORT (gating checklist + replacement style + report)
+       ================================================================ -->
+  <section class="stage" id="stage-export" aria-labelledby="h-export">
+    <div class="wrap">
+      <h2 id="h-export" class="vh">Stage 4: Export</h2>
+
+      <!-- ===== EXPORT GATING checklist (built by JS from real state) ===== -->
+      <div class="card">
+        <div class="section-h"><h2>Before you save</h2><span class="sub">a quick safety check</span></div>
+        <div id="exportBanner"></div>
+        <div class="checklist" id="exportChecklist"></div>
+      </div>
+
+      <!-- ===== REPLACEMENT STYLE — [REDACTED] vs AI-safe labels ===== -->
+      <div class="card">
+        <div class="section-h"><h2>What should the gaps say?</h2></div>
+        <p class="help mt0">Both remove exactly the same text &mdash; this only changes the marker left behind.</p>
+        <!-- Why-disabled note shown only for a PDF document (labels are a text-path feature). -->
+        <p class="help warn hidden" id="replPdfHint">Labels aren&rsquo;t available for a PDF &mdash;
+          to keep the original layout, a PDF always uses <span class="rtok">[REDACTED]</span>.</p>
+        <div class="repl-choice" style="margin-top:10px">
+          <label class="repl-opt">
+            <input type="radio" name="replstyle" value="redacted" checked>
+            <span class="dot"></span>
+            <span class="rtxt">
+              <b>Mark removed text as <span class="rtok">[REDACTED]</span></b>
+              <span class="help mt0">The usual choice. Every removed item reads the same.</span>
+            </span>
+          </label>
+          <label class="repl-opt">
+            <input type="radio" name="replstyle" value="labels">
+            <span class="dot"></span>
+            <span class="rtxt">
+              <b>Replace with labels for readability / further AI use</b>
+              <span class="help mt0">Instead of identical gaps, each removed item gets a readable
+                label &mdash; each name becomes <span class="rtok">[A]</span>, <span class="rtok">[B]</span>,
+                &hellip; and details become <span class="rtok">[email&nbsp;1]</span>,
+                <span class="rtok">[phone&nbsp;1]</span> &hellip; so the draft still reads clearly and an AI
+                tool can follow who&rsquo;s who without seeing the real information.</span>
+              <span class="help warn">Still a first pass &mdash; labels don&rsquo;t make a draft
+                &ldquo;safe to send&rdquo;; read it before you paste it anywhere.
+                <b>Labels are only available for text documents, not PDFs.</b></span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- ===== FEATURE 1 — redact accepted values EVERYWHERE (default ON) ===== -->
+      <div class="card">
+        <div class="section-h"><h2>How thorough should removal be?</h2></div>
+        <label class="repl-opt" style="margin-top:6px">
+          <input type="checkbox" id="redactEverywhere" checked>
+          <span class="dot"></span>
+          <span class="rtxt">
+            <b>Redact accepted values everywhere in the document</b>
+            <span class="help mt0">On (recommended): once you accept a value, every other place
+              the same value appears is removed too &mdash; not just the occurrences you clicked.
+              This is what stops a name being removed in some spots and left in others.</span>
+            <span class="help mt0">Untick to remove <b>only the occurrences you reviewed</b>.</span>
+          </span>
+        </label>
+      </div>
+
+      <div class="card">
+        <div class="section-h"><h2>Save the redacted copy (production)</h2>
+          <span class="sub">the redacted document you send &mdash; a PDF keeps its layout</span></div>
+        <!-- OPTIONAL reviewer name — recorded in the local workflow report written beside each
+             export. Persisted in localStorage (like the other options); empty = omitted. It
+             is a name YOU type; it stays on this computer. -->
+        <div class="row" style="margin-top:0;border-top:0;padding-top:0">
+          <label for="reviewerName" style="display:flex;flex-direction:column;gap:4px;flex:1">
+            <span class="sub">Reviewer name (optional &mdash; written into the local report)</span>
+            <input id="reviewerName" class="text-input" type="text" maxlength="200" autocomplete="off"
+                   spellcheck="false" placeholder="e.g. your name or initials">
+          </label>
+        </div>
+        <div class="row apply-row" style="margin-top:12px">
+          <button id="exportBtn" class="btn primary lg" data-primary="1" disabled aria-disabled="true">Save redacted copy</button>
+          <button class="btn ghost" data-go="review">&larr; Back</button>
+          <span id="exportHint" class="hint"></span>
+        </div>
+      </div>
+
+      <!-- ===== SECOND, CLEARLY-SEPARATE EXPORT CHOICE — labeled Markdown (AI working copy) =====
+           Deliberately its OWN card + button (never one button with a toggle): the production
+           redacted copy is above; this is a non-production working copy for AI-assisted
+           drafting. The AI-prep vs production-privilege boundary is stated on the card AND in
+           the header of the .md itself. Wired by redaction.export.js (doLabeledMarkdownExport). -->
+      <div class="card" id="labeledMdCard">
+        <div class="section-h"><h2>Export labeled Markdown (AI working copy)</h2>
+          <span class="sub">for AI-assisted drafting &mdash; a separate, non-production copy</span></div>
+        <p class="help mt0" id="labeledMdBoundary">A working copy for AI-assisted drafting &mdash;
+          <b>NOT the production redacted document.</b> It rebuilds the text with each identifier
+          replaced by a readable label, so an AI tool can follow who&rsquo;s who without seeing
+          the real information. The label key is saved as a <b>separate file</b> &mdash; keep it
+          on this computer and never paste it into an AI.</p>
+        <details id="labeledMdDetails" style="margin-top:8px">
+          <summary>What this is, and what it isn&rsquo;t</summary>
+          <p class="help">Rebuilt from text extraction &mdash; layout, tables and images are not
+            preserved. Labels replace redacted identifiers; the label key is a separate file that
+            maps labels back to real names. Still a first pass: read it before you rely on it.
+            This is <b>not</b> the production redacted document &mdash; use
+            &ldquo;Save redacted copy&rdquo; above for that.</p>
+        </details>
+        <div class="row" style="margin-top:12px">
+          <button id="labeledMdBtn" class="btn" disabled aria-disabled="true">Export labeled Markdown (AI working copy)</button>
+          <span id="labeledMdHint" class="hint"></span>
+        </div>
+        <!-- the saved-file confirmation (filename(s) written, esc()'d) + verification verdict -->
+        <div id="labeledMdResult" class="summary hidden" style="margin-top:12px"></div>
+      </div>
+
+      <!-- output: the redacted text (text path) OR a saved-PDF confirmation (PDF path). -->
+      <section id="outwrap" class="card hidden">
+        <div class="tier-h" id="outHead">
+          <h2 id="outTitle">Redacted text</h2>
+          <button id="copyBtn" class="link">Copy</button>
+        </div>
+        <div class="summary" id="applySummary"></div>
+
+        <!-- EXPORT-STAGE result strip (features A/B/C): the post-export verification verdict,
+             the "Cleaned / Not removed" visibility line, and the workflow-report filename.
+             Rendered by redaction.export.js from the export response; matter-free (counts +
+             class labels only). Deliberately NEVER says "safe" / "verified". -->
+        <div id="exportResultStrip" class="hidden" aria-live="polite" style="margin-top:12px"></div>
+
+        <!-- the local-only re-identification KEY (rendered when AI-safe labels chosen).
+             EVERY value here is cleartext matter data and MUST be esc()'d before innerHTML. -->
+        <div id="reidentKeySeam" class="hidden" aria-hidden="true"></div>
+
+        <textarea id="output" readonly spellcheck="false"></textarea>
+
+        <!-- ===== SAVE TO A FILE (text path only) =====
+             The redacted text is shown above; here the user saves it to their exports
+             folder in a chosen format. Plain-language labels (no JSON/HTML jargon). The
+             "AI-safe (labels) + key" choice appears only when the labels style produced a
+             legend, and it shows a loud warning that the key holds real names. -->
+        <div id="textSaveSeam" class="savecard hidden">
+          <div class="section-h"><h2>Save to a file</h2>
+            <span class="sub">writes to your exports folder &mdash; never your originals</span></div>
+          <p class="help mt0">Pick a format, then save. Nothing is written until you click Save.
+            Your original is untouched.</p>
+          <div class="fmt-choice" id="fmtChoice">
+            <label class="fmt-opt"><input type="radio" name="textfmt" value="txt" checked>
+              <span class="dot"></span><span class="ftxt"><b>Plain text</b>
+                <span class="help mt0">A simple .txt file.</span></span></label>
+            <label class="fmt-opt"><input type="radio" name="textfmt" value="md">
+              <span class="dot"></span><span class="ftxt"><b>Markdown</b>
+                <span class="help mt0">A .md file &mdash; tidy for notes or pasting into a doc tool.</span></span></label>
+            <label class="fmt-opt"><input type="radio" name="textfmt" value="html">
+              <span class="dot"></span><span class="ftxt"><b>Web page</b>
+                <span class="help mt0">A self-contained .html file you can open in a browser.</span></span></label>
+            <label class="fmt-opt"><input type="radio" name="textfmt" value="json">
+              <span class="dot"></span><span class="ftxt"><b>Data (JSON)</b>
+                <span class="help mt0">A .json file for another tool to read.</span></span></label>
+          </div>
+
+          <!-- The AI-friendly labels + key warning: shown only when the labels style is in use
+               AND a key was produced. The key file holds REAL names and must stay local. -->
+          <div id="keyWarn" class="banner warn hidden" style="margin-top:12px">
+            <span class="ic" aria-hidden="true">&#128274;</span>
+            <div class="body"><b>Saving the labels also saves a key file with the real names.</b>
+              <p>The labelled document uses placeholders an AI tool can follow &mdash; but it is
+                still a first pass, so read it before you rely on it; labels don&rsquo;t make a draft
+                &ldquo;safe to send.&rdquo; Alongside it we save a separate <b>key file</b> that maps
+                each label back to the real name it replaced.
+                <span class="keystrong">That key holds real people&rsquo;s information &mdash; keep it
+                on your computer and never send it with the redacted document or paste it into an AI.</span></p>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:12px">
+            <button id="textSaveBtn" class="btn primary">Save to file</button>
+            <span id="textSaveHint" class="hint"></span>
+          </div>
+          <!-- the saved-file confirmation (filename(s) written, esc()'d) -->
+          <div id="textSaveResult" class="summary hidden" style="margin-top:12px"></div>
+        </div>
+
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn ghost" data-go="document" id="redactAnotherBtn">Redact another document</button>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ================================================================
+       STAGE 5 — REPORT (post-export: what was saved + real open/reveal actions)
+       ================================================================
+       Shown after a redacted copy is written. Chips report the real saved artifacts +
+       the post-export verification verdict (its exact honest wording lives in the
+       expandable — never says "safe"/"verified"). The buttons wire to REAL actions:
+       "Open folder" reveals the saved copy (the same reveal the export flow already runs),
+       "View report" opens the local `.report.txt` — both token-guarded + confined to the
+       exports dir (app/redactionroutes.py). Rendered by renderReportStage(). -->
+  <section class="stage" id="stage-report" aria-labelledby="h-report">
+    <div class="wrap">
+      <h2 id="h-report" class="vh">Stage 5: Report</h2>
+
+      <div class="card">
+        <div class="section-h"><h2>What was saved</h2>
+          <span class="sub">a local record of this redaction run</span></div>
+
+        <!-- status chips (built by JS from the real export response) -->
+        <div class="report-chips" id="reportChips" role="status" aria-live="polite">
+          <span class="chip ok hidden" id="repSavedChip">Redacted copy saved</span>
+          <span class="chip ok hidden" id="repReportChip">Workflow report saved</span>
+          <span class="chip hidden" id="repCheckChip">Post-export check</span>
+        </div>
+
+        <!-- the post-export verdict's FULL honest wording, relocated verbatim into a
+             disclosure (never weakened; never says "safe"/"verified"). Built by JS. -->
+        <div id="reportVerdict" style="margin-top:12px"></div>
+
+        <!-- what the engine cleaned / did not remove + the report filename (from the
+             export response; matter-free counts + class labels only). Built by JS. -->
+        <div id="reportDetail" style="margin-top:10px"></div>
+
+        <div class="row apply-row" id="reportActions">
+          <button id="openFolderBtn" class="btn" data-primary="1">Open folder</button>
+          <button id="viewReportBtn" class="btn ghost">View report</button>
+          <span class="hint" id="reportActionsHint"></span>
+        </div>
+
+        <div class="divider"></div>
+        <div class="btn-row">
+          <button class="btn ghost" data-go="document" id="reportRedactAnotherBtn">Redact another document</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- per-span IMAGE review: page previews with toggleable detected boxes (scanned PDFs).
+       A side-path off the PDF flow (no stepper step of its own). -->
+  <section class="stage" id="stage-image" aria-labelledby="h-image">
+    <div class="wrap wide">
+      <h2 id="h-image" class="vh">Scanned-document (image) redaction</h2>
+      <div class="banner info">
+        <span class="ic" aria-hidden="true">&#128247;</span>
+        <div class="body">
+          <b>This page is a scan &mdash; the words are part of the picture.</b>
+          <p>There&rsquo;s no text to edit, so we read the page image and, for each box you keep, we
+            <b>delete the pixels under a black box</b> &mdash; the words are removed from the picture, not
+            just covered. Tick each box before anything is removed.</p>
+        </div>
+      </div>
+      <section id="imgreview" class="card">
+        <div class="summary" id="imgSummary"></div>
+        <div class="row img-actions">
+          <button id="imgAllBtn" class="link">Keep all</button>
+          <button id="imgNoneBtn" class="link">Skip all</button>
+          <span class="hint">Click a box to keep (filled) or skip (outline) it. Filled boxes are removed.</span>
+        </div>
+        <div id="imgPages"></div>
+        <div class="row apply-row">
+          <button id="imgApplyBtn" class="btn primary">Redact &amp; save PDF</button>
+          <button class="btn ghost" data-go="review">&larr; Back to findings</button>
+          <span id="imgApplyHint" class="hint"></span>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  </main>
+
+  <div class="footer">
+    <span class="f"><span id="footDot" class="dotmark"></span> <b id="footState">Checking the redaction engine&hellip;</b></span>
+    <span class="f"><b>Local-only</b> &mdash; nothing leaves this machine</span>
+    <span class="f"><b>Rule-based</b> &mdash; no AI, no model calls</span>
+    <span class="f"><b>You decide</b> &mdash; a first pass, never &ldquo;safe to send&rdquo;</span>
+  </div>
+</div>
+
+<!-- ====================================================================
+     FLAGGED-PASSAGE POPOVER (a lightweight, dismissible modal on THIS page).
+     Opened by clicking a flagged highlight — it does NOT navigate to another stage.
+     Built/filled by JS (all cleartext esc'd before innerHTML).
+     ==================================================================== -->
+<div class="modal-overlay hidden" id="flagModal" role="dialog" aria-modal="true" aria-labelledby="flagModalTitle">
+  <div class="modal">
+    <div class="mh">
+      <span class="ic" aria-hidden="true">&#128065;</span>
+      <h3 id="flagModalTitle">Flagged for your eyes</h3>
+      <button class="mx" id="flagModalClose" aria-label="Close">Close</button>
+    </div>
+    <div class="mbody" id="flagModalBody"></div>
+    <div class="macts">
+      <button class="btn primary" data-go="review" id="flagModalGoto">See all flagged passages &rarr;</button>
+      <button class="btn ghost" id="flagModalDismiss">Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* __BASE_JS__ */
+/* __REDACTION_JS__ */
+</script>
+</body>
+</html>

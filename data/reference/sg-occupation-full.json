@@ -1,0 +1,59 @@
+{
+  "category": "occupation",
+  "jurisdiction": "SG",
+  "population_N": 2377800,
+  "entries": [
+    {
+      "key": "professionals",
+      "count": 624700,
+      "prob": 0.26272184
+    },
+    {
+      "key": "associate professionals and technicians",
+      "count": 495700,
+      "prob": 0.20847001
+    },
+    {
+      "key": "managers & administrators (including working proprietors)",
+      "count": 406000,
+      "prob": 0.17074607
+    },
+    {
+      "key": "service and sales workers",
+      "count": 247100,
+      "prob": 0.10391959
+    },
+    {
+      "key": "clerical support workers",
+      "count": 200900,
+      "prob": 0.08448986
+    },
+    {
+      "key": "cleaners, labourers and related workers",
+      "count": 167800,
+      "prob": 0.07056943
+    },
+    {
+      "key": "plant and machine operators and assemblers",
+      "count": 129000,
+      "prob": 0.05425183
+    },
+    {
+      "key": "others",
+      "count": 54800,
+      "prob": 0.02304651
+    },
+    {
+      "key": "craftsmen and related trades workers",
+      "count": 51800,
+      "prob": 0.02178484
+    }
+  ],
+  "source_name": "SingStat / data.gov.sg \u2014 Employed Residents Aged 15+ by Occupation, Age and Sex (2025)",
+  "source_url": "https://data.gov.sg/ (dataset: EmployedResidentsByOccupationAgeAndSex)",
+  "license": "Singapore Open Data Licence v1.0",
+  "redistributable": true,
+  "redistribution_notes": "ODL v1.0 \u2014 attribution + licence link required. User-supplied from data.gov.sg.",
+  "granularity_notes": "SSOC broad groups, employed residents 15+, summed across age+sex, year 2025. Denominator = employed residents (not whole population).",
+  "retrieved": "2026-06-26"
+}

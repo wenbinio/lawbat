@@ -1,0 +1,306 @@
+# Windows MSI packaging — SEPARATE from the required CI (.github/workflows/ci.yml),
+# so it can never break the green pipeline. It assembles the embedded-Python
+# bundle, smoke-checks it against the EMBEDDED interpreter, then builds the MSI
+# with WiX and uploads it as a build artifact.
+#
+# NOT a required check. Triggers: manual (workflow_dispatch) + pushes to the
+# packaging branch(es). Build-time network fetches (embeddable Python, get-pip,
+# tools) are fine; the SHIPPED app never reaches the network.
+#
+# Intended flow: push any commit — from any dev branch, unmodified — straight to a
+# packaging/** branch to fire a build:
+#   git push origin <dev-branch>:packaging/<name>
+# No dummy-commit dance needed. (There is deliberately NO `paths:` filter on this
+# trigger: a push to packaging/** exists ONLY to trigger this build, so filtering
+# by changed paths is counterproductive — it previously forced a throwaway
+# TRIGGER.md commit just to satisfy the filter.)
+#
+# >>> Runs WILL fail on any placeholder hash still left in build\pins.psd1 <<< (by
+# design — supply-chain check). Qpdf and Tesseract are already hard-pinned
+# (2026-06-21); the embeddable-Python hash is still open (unreachable from the Linux
+# dev box that authors this repo — python.org is not on that box's allowed egress
+# list, so it must be captured from an actual CI run's log, then cross-checked
+# against an independent network path before pinning — see the comment in
+# build\pins.psd1). To bootstrap a run and capture/refresh a real hash, use the
+# `allow_unverified` workflow_dispatch input (a deliberate manual switch — there is
+# no commit-message bypass), read the printed hash from the log, pin it in
+# build\pins.psd1, and turn the input back off for the next run. The icon
+# (build\wix\assets\app.ico) must also exist or `wix build` fails.
+
+name: package-windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      allow_unverified:
+        description: "Bootstrap mode: skip the SHA256 pin check (capture real hashes from the log, then pin them). DO NOT use for a real build."
+        type: boolean
+        default: false
+      include_ocr:
+        description: "Include the optional OCR (Tesseract) feature payload."
+        type: boolean
+        default: true
+  push:
+    branches:
+      - "packaging"
+      - "packaging/**"
+
+permissions:
+  contents: write   # create the pre-release + upload the MSI asset
+
+jobs:
+  build-msi:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pin the build host to the SAME minor the app is tested against in CI (3.12)
+      # — only used to author/run helper tooling; the BUNDLE ships its own embedded
+      # Python fetched + verified by assemble.ps1.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Assemble payload (download+verify, embed Python, pip, vendor binaries)
+        shell: pwsh
+        env:
+          # Bootstrap mode allows placeholder hashes so the run can PRINT the real
+          # ones to pin. Enabled ONLY by the explicit workflow_dispatch input — a
+          # deliberate manual switch. (A commit-message magic string was dropped
+          # 2026-07-02: an auto-bypass any pusher can trigger defeats the point of a
+          # supply-chain gate.) Otherwise enforced (empty => not "1").
+          LAWDATAMAN_ALLOW_UNVERIFIED: ${{ (github.event_name == 'workflow_dispatch' && inputs.allow_unverified) && '1' || '' }}
+        run: |
+          $ocr = if ('${{ inputs.include_ocr }}' -eq 'false') { $false } else { $true }
+          ./build/assemble.ps1 -IncludeOcr:$ocr
+
+      # The Rust trusted core ships in the SAME MSI (staged under DataRoomReview\core).
+      # Build it RELEASE on the Windows target, gate it with the substrate spike, and
+      # stage the two artifacts (host.exe + the wasm guest) so Product.wxs harvests
+      # core\. This proves the core compiles + runs on the target OS and is packaged.
+      - name: Install Rust toolchain (+ wasm32-wasip2 for the guest)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+
+      - name: Build + stage the Rust core (release) for the MSI
+        shell: pwsh
+        working-directory: core
+        env:
+          # Static CRT: link the MSVC runtime INTO each core binary so redact-cli.exe /
+          # viewgen.exe / host.exe have ZERO external DLL dependencies. Fixes the
+          # clean-machine spawn-failure class (a box missing the VC++ redistributable
+          # would otherwise fail to launch the staged .exe, taking down the live Home +
+          # Redaction paths). Applies to BOTH products' bins (they share this stage). On
+          # the wasm32-wasip2 guest crt-static is already the target default, so it is a
+          # no-op there — safe to set globally for the step.
+          RUSTFLAGS: -C target-feature=+crt-static
+        run: |
+          cargo build -p host --release --locked
+          if ($LASTEXITCODE -ne 0) { throw "core host build failed ($LASTEXITCODE)" }
+          cargo build -p hello --target wasm32-wasip2 --release --locked
+          if ($LASTEXITCODE -ne 0) { throw "wasm guest build failed ($LASTEXITCODE)" }
+          # Gate: the substrate spike must pass on the target OS (it exits non-zero
+          # on a failed invariant). `cargo run` finds the guest at the default
+          # target path we just built.
+          cargo run -p host --release --locked
+          if ($LASTEXITCODE -ne 0) { throw "core substrate spike failed ($LASTEXITCODE)" }
+          # viewgen: the host<->core view-model bridge the Python Home calls (emits the
+          # firmos.view/0 contract JSON). The app (app/viewmodel.py) looks for it at
+          # vendor\core\viewgen.exe, so stage it THERE (not core\) — that makes the
+          # SHIPPED Home live (real data) instead of the bundled-sample fallback.
+          cargo build -p viewgen --release --locked
+          if ($LASTEXITCODE -ne 0) { throw "viewgen build failed ($LASTEXITCODE)" }
+          # redact-cli: the host<->core REDACTION bridge the Redaction review page calls
+          # (scan/apply over stdin/stdout JSON). The app (app/redactionmodel.py) looks for
+          # it at vendor\core\redact-cli.exe, so stage it THERE — that makes the SHIPPED
+          # Redaction feature live instead of the unavailable fallback.
+          cargo build -p redact-cli --release --locked
+          if ($LASTEXITCODE -ne 0) { throw "redact-cli build failed ($LASTEXITCODE)" }
+          # Stage the shippable artifacts into the assembled payload tree.
+          $coreDst = "..\build\stage\DataRoomReview\core"
+          New-Item -ItemType Directory -Force $coreDst | Out-Null
+          $hostExe = Resolve-Path .\target\release\host.exe
+          $guest   = Resolve-Path .\target\wasm32-wasip2\release\hello.wasm
+          Copy-Item $hostExe $coreDst -Force
+          Copy-Item $guest   $coreDst -Force
+          if (-not (Test-Path (Join-Path $coreDst 'host.exe')))   { throw "host.exe missing after stage" }
+          if (-not (Test-Path (Join-Path $coreDst 'hello.wasm'))) { throw "hello.wasm missing after stage" }
+          $vcDst = "..\build\stage\DataRoomReview\vendor\core"
+          New-Item -ItemType Directory -Force $vcDst | Out-Null
+          Copy-Item (Resolve-Path .\target\release\viewgen.exe) $vcDst -Force
+          if (-not (Test-Path (Join-Path $vcDst 'viewgen.exe'))) { throw "viewgen.exe missing after stage" }
+          Copy-Item (Resolve-Path .\target\release\redact-cli.exe) $vcDst -Force
+          if (-not (Test-Path (Join-Path $vcDst 'redact-cli.exe'))) { throw "redact-cli.exe missing after stage" }
+          # Smoke-check the STAGED viewgen emits valid contract JSON (the live Home path).
+          $vgOut = & (Join-Path $vcDst 'viewgen.exe') 2>&1 | Out-String
+          if ($LASTEXITCODE -ne 0) { throw "staged viewgen failed ($LASTEXITCODE)" }
+          if ($vgOut -notmatch '"schema"\s*:\s*"firmos\.view/0"') { throw "staged viewgen did not emit the firmos.view/0 contract" }
+          # Smoke-check the STAGED redact-cli scans (the live Redaction path): feed a card
+          # on STDIN and assert the firmos.redaction/0 scan contract comes back.
+          $rcOut = '{"op":"scan","text":"card 4111 1111 1111 1111"}' | & (Join-Path $vcDst 'redact-cli.exe') | Out-String
+          if ($LASTEXITCODE -ne 0) { throw "staged redact-cli failed ($LASTEXITCODE)" }
+          if ($rcOut -notmatch '"schema"\s*:\s*"firmos\.redaction/0"') { throw "staged redact-cli did not emit the firmos.redaction/0 contract" }
+          if ($rcOut -notmatch '"recognizer"\s*:\s*"credit-card"') { throw "staged redact-cli did not detect the seeded card" }
+          Write-Host "staged core:`n$((Get-ChildItem $coreDst | Format-Table Length,Name | Out-String))"
+          Write-Host "staged vendor\core (viewgen + redact-cli): live Home + Redaction paths OK"
+
+      - name: Smoke-check the STAGED core binary (runs from the package tree)
+        shell: pwsh
+        env:
+          # The staged host.exe resolves its guest via this env var (the dev
+          # CARGO_MANIFEST_DIR path doesn't exist outside the build tree). Point it
+          # at the STAGED guest so this proves the PACKAGED binary runs, not the
+          # build-tree one.
+          LAWDATAMAN_SPIKE_GUEST: ${{ github.workspace }}\build\stage\DataRoomReview\core\hello.wasm
+        run: |
+          $hostExe = Resolve-Path .\build\stage\DataRoomReview\core\host.exe
+          $out = & $hostExe 2>&1 | Out-String
+          Write-Host $out
+          if ($LASTEXITCODE -ne 0) { throw "staged core binary failed ($LASTEXITCODE)" }
+          if ($out -notmatch 'SPIKE OK') { throw "staged core binary did not print SPIKE OK" }
+          Write-Host "Staged Rust core runs from the package tree: SPIKE OK"
+
+      - name: Smoke-check the ASSEMBLED bundle (embedded interpreter)
+        shell: pwsh
+        run: |
+          $py = Resolve-Path .\build\stage\DataRoomReview\python\python.exe
+          $install = (Resolve-Path .\build\stage\DataRoomReview).Path
+          & $py .\build\smoke_check.py --install-dir $install
+          if ($LASTEXITCODE -ne 0) { throw "bundle smoke-check failed ($LASTEXITCODE)" }
+
+      # Full payload census: this is the FIRST point the staged tree is complete
+      # (core\ + vendor\core\ landed a couple steps ago) and the LAST point before
+      # wix build packs it into the MSI, so this is the honest "what actually
+      # ships" size. assemble.ps1 already printed its own PARTIAL census (it runs
+      # before core\ is staged) — this is the full one, every top-level dir WiX's
+      # <Files Include="...\**"> globs harvest.
+      - name: Payload census (full staged tree, incl. Rust core)
+        shell: pwsh
+        run: |
+          $stage = (Resolve-Path .\build\stage\DataRoomReview).Path
+          .\build\payload_census.ps1 -StageDir $stage -Label 'FULL payload census (everything wix build will harvest)'
+
+      - name: Install WiX (v5)
+        shell: pwsh
+        run: dotnet tool install --global wix --version 5.0.2
+
+      - name: Build MSI
+        shell: pwsh
+        run: |
+          $stage = (Resolve-Path .\build\stage\DataRoomReview).Path
+          New-Item -ItemType Directory -Force .\build\out | Out-Null
+          # Version: use the app __version__ so the MSI matches the running app.
+          $ver = (Select-String -Path .\app\__init__.py -Pattern '__version__\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
+          Write-Host "Building MSI version $ver"
+          # WixUI_InstallDir (the install-folder wizard) lives in the UI extension.
+          # Pin it to the SAME version as the WiX toolset (5.0.2): an unpinned add
+          # pulled 7.0.0 (a WiX v6 extension) which is incompatible with WiX v5
+          # (WIX6101: no wixext5 package root). Then reference it with -ext at build.
+          wix extension add -g WixToolset.UI.wixext/5.0.2
+          if ($LASTEXITCODE -ne 0) { throw "wix extension add failed ($LASTEXITCODE)" }
+          wix build .\build\wix\Product.wxs -arch x64 `
+            -ext WixToolset.UI.wixext `
+            -d Version=$ver `
+            -d StageDir=$stage `
+            -o .\build\out\DataRoomReview-$ver.msi
+          if ($LASTEXITCODE -ne 0) { throw "wix build failed ($LASTEXITCODE)" }
+
+      # Build the STANDALONE Redactor MSI from the SAME staged tree ($stage). It is the
+      # redaction reviewer as its own slim app (build\wix\Redactor.wxs -> desktop\redactor.py
+      # -> app.web.create_redactor_app), with its own ProductName / UpgradeCode / install dir
+      # so it coexists with a Lawbat install. Reuses the WiX UI extension added above.
+      - name: Build Redactor MSI
+        shell: pwsh
+        run: |
+          $stage = (Resolve-Path .\build\stage\DataRoomReview).Path
+          $ver = (Select-String -Path .\app\__init__.py -Pattern '__version__\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
+          Write-Host "Building Redactor MSI version $ver"
+          wix build .\build\wix\Redactor.wxs -arch x64 `
+            -ext WixToolset.UI.wixext `
+            -d Version=$ver `
+            -d StageDir=$stage `
+            -o .\build\out\Redactor-$ver.msi
+          if ($LASTEXITCODE -ne 0) { throw "wix build (Redactor) failed ($LASTEXITCODE)" }
+
+      - name: Upload MSI artifact (Lawbat)
+        uses: actions/upload-artifact@v4
+        with:
+          name: DataRoomReview-msi
+          path: build/out/DataRoomReview-*.msi
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload MSI artifact (Redactor)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Redactor-msi
+          path: build/out/Redactor-*.msi
+          if-no-files-found: error
+          retention-days: 14
+
+      # Publish the MSI to GitHub Releases as a PRE-RELEASE so it persists past the
+      # 14-day artifact retention and is easy to download/test. Uses the runner's
+      # built-in `gh` (no extra action dependency). One pre-release per successful
+      # build, tagged v<ver>-pre.<run_number> at this commit. Notes set honest
+      # expectations (unsigned, base-only, bootstrap-mode, install/GUI unverified).
+      - name: Publish MSI as a GitHub pre-release
+        if: success()
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ver = (Select-String -Path .\app\__init__.py -Pattern '__version__\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
+          $msi = ".\build\out\DataRoomReview-$ver.msi"
+          if (-not (Test-Path $msi)) { throw "MSI not found at $msi" }
+          $redactorMsi = ".\build\out\Redactor-$ver.msi"
+          if (-not (Test-Path $redactorMsi)) { throw "Redactor MSI not found at $redactorMsi" }
+          $installGuide = ".\docs\INSTALL.md"
+          if (-not (Test-Path $installGuide)) { throw "Install guide not found at $installGuide" }
+          $tag = "v$ver-pre.${{ github.run_number }}"
+          # Honesty is load-bearing: compute the OCR line from the actual staged payload,
+          # never assume it, so the notes can't understate/overstate what shipped.
+          $ocrStaged = Test-Path ".\build\stage\DataRoomReview\vendor\tesseract\tesseract.exe"
+          # Same rule for the language data: report the packs that actually STAGED
+          # (tessdata_best is fetched per-file with an offline fallback — see
+          # build/assemble.ps1), never the pin list.
+          $tessdataDir = ".\build\stage\DataRoomReview\vendor\tesseract\tessdata"
+          $stagedLangs = @(Get-ChildItem -Path $tessdataDir -Filter '*.traineddata' -ErrorAction SilentlyContinue |
+                           ForEach-Object { $_.BaseName } |
+                           # osd = the orientation-detection model, not a reading language —
+                           # listing it as "language data" would misstate what the user got.
+                           Where-Object { $_ -ne 'osd' } | Sort-Object)
+          $langNote = if ($stagedLangs) { " Language data staged: $($stagedLangs -join ', ') (extra packs are opt-in via LAWDATAMAN_OCR_LANGS; default stays English)." } else { "" }
+          $ocrLine = if ($ocrStaged) { "- Includes the optional OCR (Tesseract) feature.$langNote" }
+                     else            { "- Base feature only (OCR / Tesseract omitted in this build)." }
+          # Publish each built MSI's own hash in the release notes so a recipient can
+          # verify the download from the release page itself (no separate pins file
+          # to cross-reference — this hash IS this specific build's artifact).
+          $msiHash = (Get-FileHash -Algorithm SHA256 $msi).Hash.ToLower()
+          $redactorHash = (Get-FileHash -Algorithm SHA256 $redactorMsi).Hash.ToLower()
+          $notes = @(
+            "**Pre-release test build - not for production.**",
+            "",
+            "First install: see INSTALL.md - Windows will show a SmartScreen warning for this unsigned pre-release; the guide covers it and how to verify the download hash.",
+            "",
+            "### Lawbat  (DataRoomReview-$ver.msi)",
+            "- Unsigned MSI: Windows SmartScreen / UAC will warn (expected).",
+            "$ocrLine",
+            "- Interpreter + qpdf + Tesseract are SHA256-pinned and verified at build time (get-pip and the WebView2 bootstrapper are evergreen by design: hash logged, not gated).",
+            "- MSI SHA256: $msiHash",
+            "- CI smoke-check PASSED: imports load, FTS5 works in the embedded interpreter, the local server boots and answers /api/state.",
+            "- NEW: bundles the Rust trusted-core substrate (PREVIEW) under core\. It is built RELEASE on Windows, the substrate spike (sandbox + audit chokepoint) passes, and the STAGED host.exe is smoke-checked to run from the package tree (SPIKE OK). Not yet wired to the UI - the Python app remains the launched app.",
+            "- NOT yet verified: install / upgrade and the WebView2 window on a clean machine - this build is for that manual testing.",
+            "",
+            "### Redactor  (Redactor-$ver.msi)",
+            "- The standalone, sector-agnostic Redactor: the redaction reviewer as the WHOLE app (no data-room / search / Home). SAME deterministic redaction engine (redact-cli) as Lawbat, same local-only / air-gapped / no-AI posture, same honest framing (never 'safe to send' — read the result yourself).",
+            "- Shares this codebase (a mode, not a fork): its own ProductName / UpgradeCode / install dir, so it coexists with a Lawbat install on the same machine.",
+            "- Unsigned MSI: Windows SmartScreen / UAC will warn (expected). $ocrLine",
+            "- MSI SHA256: $redactorHash",
+            "- NOT yet verified: install / upgrade and the WebView2 window on a clean machine - this build is for that manual testing.",
+            "",
+            "Commit: ${{ github.sha }}"
+          ) -join "`n"
+          gh release create $tag $msi $redactorMsi $installGuide --prerelease --target ${{ github.sha }} --title "Lawbat + Redactor $ver ($tag)" --notes $notes
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed ($LASTEXITCODE)" }
+          Write-Host "Published pre-release $tag with $msi, $redactorMsi, and $installGuide"

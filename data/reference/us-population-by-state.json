@@ -1,0 +1,17 @@
+{
+  "category": "region",
+  "jurisdiction": "US",
+  "population_N": 331449281,
+  "entries": [
+    {"key": "California", "count": 39538223, "prob": 0.11929},
+    {"key": "Texas", "count": 29145505, "prob": 0.08793},
+    {"key": "__other_48_states_plus_DC", "count": 262765553, "prob": 0.79278}
+  ],
+  "source_name": "U.S. Census Bureau, 2020 Census Apportionment / Population totals for states (April 1, 2020)",
+  "source_url": "https://www.census.gov/data/tables/2020/dec/2020-apportionment-data.html",
+  "license": "U.S. Government work / PUBLIC DOMAIN (17 U.S.C. 105). Free to reuse and redistribute.",
+  "redistributable": true,
+  "redistribution_notes": "SHIPPABLE. Only the two largest states were verified to exact figures here (California 39,538,223; Texas 29,145,505) plus the national total 331,449,281; the third entry is the residual of the remaining 48 states + DC. The FULL 50-state + DR + PR table is a single small public-domain file (2020 apportionment table, or table P1) and is the trivial DROP-IN to complete this — recommend shipping the full state table rather than this 2-row stub. prob = count/national total.",
+  "granularity_notes": "State-level marginal (coarsest US geography). County-level (a far stronger QI for re-id) is also fully public domain (Census table P1 by county) but not transcribed here. State alone is a weak geographic QI for a 331M population.",
+  "retrieved": "2026-06-26"
+}

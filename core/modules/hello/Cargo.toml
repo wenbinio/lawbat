@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# `hello` — the SPIKE guest module. Compiled to a WASM component for
+# `wasm32-wasip2`. It implements the `run` export and calls the brokered `host.note`
+# import. It is deliberately tiny: its only job is to prove the chokepoint
+# (spec §0) — a granted brokered call works, and there is NO way for it to reach
+# the network because no egress/socket import exists in its world (world.wit).
+[package]
+name = "hello"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Guest bindings generator. std-only-ish; pulled from crates.io (verified
+# fetchable). No network/egress crates.
+wit-bindgen = "0.58"

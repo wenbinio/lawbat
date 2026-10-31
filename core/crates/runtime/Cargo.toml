@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[package]
+name = "runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# The trusted core stays minimal on purpose (spec §2, §8): adding crates to the
+# most-trusted code is a liability. The approved exceptions are `sha2` + `hmac`
+# (both RustCrypto) for the tamper-evident audit chain — a cryptographic hash is
+# required so the chain is collision-resistant (decided item #10), and the keyed
+# HMAC-SHA-256 mac makes the chain forge-resistant to a rewrite-and-recompute
+# attacker who lacks the key (the authenticity foundation). They share transitive
+# deps (digest/crypto-common/generic-array/block-buffer/cpufeatures); `hmac`
+# pulls in NO RNG/getrandom and NO network — all pure compute, so both are
+# acceptable under the no-egress non-negotiable.
+[dependencies]
+sha2 = "0.10"
+hmac = "0.12"
+
+# SECURITY (C-1): the dev-key audit constructors (`InMemoryAudit::new` /
+# `with_clock` / `Default`) are GATED behind this feature so a pure production
+# build of `runtime` CANNOT silently key an audit chain with the public
+# `DEV_AUDIT_KEY` placeholder. They are also available under `cfg(test)` for this
+# crate's own unit tests. Downstream crates that legitimately need the dev key
+# (the spike `host`; the `redaction` test suite) opt in EXPLICITLY in their own
+# Cargo.toml — never an accident. A production build that wants an authenticated
+# chain calls `InMemoryAudit::with_key` / `with_clock_and_key` with a real secret
+# instead. (Full KEY CUSTODY — a real secret under separate-store custody —
+# remains DEFERRED to the persistence layer; see audit.rs "Key custody".)
+[features]
+dev-audit-key = []

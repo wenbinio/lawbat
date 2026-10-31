@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[package]
+name = "ingest"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# The TRUSTED CORE-PLANE metadata ingestion job — the producer that RUNS `extract`
+# over an `.eml`/`.msg`, serializes the recovered email headers into the
+# `firmos.meta/1` canonical form (extract's `to_canonical`), and lands that doc in
+# the matter store under `DataClass::Metadata`, so the core's `matter_read_metadata`
+# reader can hand a consumer (the inbox) already-parsed, typed `EmailHeaders`.
+#
+# This is CORE-PLANE, not a module: like the indexer/walker (a CORE responsibility,
+# spec §6), ingestion populates the matter store the trusted host owns BEFORE it is
+# moved into a `Core`. It is therefore the natural bridge crate that depends on BOTH
+# `extract` (the parser + the `firmos.meta/1` PRODUCER) and `runtime` (the matter
+# store + the data-class taxonomy) — those two stay independent of each other; a
+# higher-level orchestrator may depend on both. It is deliberately SEPARATE from
+# `mailbox` (the egress-HOLDING connector that disclaims matter-store access): this
+# job has the opposite posture — it writes the matter store and holds NO egress.
+#
+# DEPENDENCY POLICY (CLAUDE.md non-negotiables): DETERMINISTIC, std-only orchestration
+# over the two path deps. NO model / LLM / network / RNG. The F-1 clamp is pure
+# byte-level string processing; the only crates are:
+#   - `extract` — the `.eml`/`.msg` parser + the `to_canonical`/`percent_encode`
+#                 `firmos.meta/1` producer primitives (the shared wire-format contract).
+#   - `runtime` — the matter store (`InMemoryMatterStore`), the `DataClass` taxonomy,
+#                 and `MAX_CANONICAL_BYTES` (the reader's cap this job targets).
+# Adding any other dependency needs explicit sign-off.
+[dependencies]
+extract = { path = "../extract" }
+runtime = { path = "../runtime" }
+
+# SECURITY (mirrors inbox/redaction): the shipped library binds the PRODUCTION
+# `runtime` surface only and never touches the dev audit key. The round-trip test
+# wires the deterministic `InMemoryAudit::with_clock(FixedClock::..)` double (gated
+# behind runtime's `dev-audit-key` feature) to drive the REAL `Core::matter_read_metadata`
+# reader — enabled for TESTS ONLY via a dev-dependency, so the library never pulls
+# the dev key in.
+[dev-dependencies]
+runtime = { path = "../runtime", features = ["dev-audit-key"] }
+# Build a tiny PDF (a non-email, extractable document) in the body-ingestion tests —
+# the SAME lopdf the extract crate already pulls in (so no new lock entry), here only
+# to fabricate a fixture. Test-only; never part of the library. Its transitive
+# getrandom/rand stays confined to this dev tree (the CI guard checks `runtime` only,
+# and `runtime` does not depend on `ingest`).
+lopdf = { version = "0.41", default-features = false }

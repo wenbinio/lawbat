@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[package]
+name = "search"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# A NATIVE first-party SEARCH re-rank/present module (skeleton), bound to the
+# trusted-core `Core` traits — no WASM this increment. Mirrors `redaction`'s
+# pattern (module #1) at the dependency + capability level.
+#
+# RATIFIED ARCHITECTURE (load-bearing — see lib.rs): the CORE owns the index and
+# runs the entitlement-filtered query; this module ONLY re-ranks/presents the
+# already-filtered `Hit`s the core hands it. A module-owned index would defeat the
+# Chinese walls from INSIDE the instance, so this crate builds + holds NO index.
+#
+# DEPENDENCY POLICY (CLAUDE.md non-negotiables): deterministic, local-only, no
+# network, no model. This skeleton depends on exactly one thing:
+#   - `runtime` (the trusted core) — only for the `audit.note` seam + shared types
+#     (`DataClass`, `CoreResult`). It does NOT reach any matter.read / index API.
+# `rerank` itself is PURE (no `Core`, no index access). Adding anything else here
+# needs explicit sign-off.
+[dependencies]
+runtime = { path = "../runtime" }
+
+# SECURITY (C-1): search's NON-test code binds the production `Core` traits only and
+# never touches the dev audit key. Its TEST suite wires the deterministic
+# `InMemoryAudit::with_clock(FixedClock::..)` doubles, which `runtime` gates behind
+# its `dev-audit-key` feature. Enable that feature for tests ONLY via a
+# dev-dependency, so the shipped library never pulls the dev key in (mirrors redaction).
+[dev-dependencies]
+runtime = { path = "../runtime", features = ["dev-audit-key"] }

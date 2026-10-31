@@ -1,0 +1,100 @@
+/*
+  Lawbat — Re-identification RISK estimator PAGE-SPECIFIC styles.
+
+  The shared design system (tokens, topbar, .banner, .btn, .chip, .card, form controls,
+  .empty, focus ring, footer) lives in app/ui/base.css and is inlined BEFORE this file (the
+  server substitutes the base-css marker). This file carries ONLY the estimator-specific
+  styles on top: the k-estimate lead/number, the QI contribution rows, the medical tiers, the
+  coverage/caveat blocks, the batch document list, and the concern badge palette.
+
+  Self-contained: system font stack only (NO web fonts), no url() to any external resource.
+  Inlined into reidrisk.html at startup so the page is one air-gapped document.
+*/
+
+/* keep the two big honesty banners snug above the tools */
+.coverage-banner{margin-bottom:0}
+
+/* ---- single-document estimate card ---- */
+.est-card{margin-top:18px}
+.est-lead{
+  font-size:var(--t-h3);font-weight:700;color:var(--fg2);
+  margin:4px 0 6px;line-height:1.3;
+}
+.est-lead .big{font-size:var(--t-h2);color:var(--crit);font-weight:700;font-variant-numeric:tabular-nums}
+.est-k{
+  font-family:var(--mono);font-size:var(--t-body);color:var(--fg);font-variant-numeric:tabular-nums;
+  background:var(--l3);border:1px solid var(--hair);border-radius:var(--r-sm);
+  padding:8px 12px;display:inline-block;margin-bottom:8px;
+}
+.est-k b{color:var(--fg2)}
+.est-meta{color:var(--fg3);font-size:var(--t-cap);margin-bottom:12px}
+.est-block{margin-top:16px;border-top:1px solid var(--hair);padding-top:12px}
+.est-block h3{font-size:var(--t-cap);color:var(--fg2);margin-bottom:8px;font-weight:600}
+
+/* the insufficient-data message — honest, never a "low risk" read */
+.est-insufficient{
+  background:var(--warn-ghost);border:1px solid var(--hair);border-radius:var(--r-sm);
+  padding:10px 12px;color:var(--fg2);font-size:var(--t-cap);
+}
+.est-insufficient b{color:var(--warn);display:block;margin-bottom:2px}
+
+/* ---- QI contribution rows ---- */
+.qi-row{
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  padding:7px 0;border-bottom:1px solid var(--hair2);font-size:var(--t-cap);
+}
+.qi-row:last-child{border-bottom:0}
+.qi-cat{font-weight:600;color:var(--fg2);min-width:120px}
+.qi-val{font-family:var(--mono);background:var(--l3);border-radius:4px;padding:0 5px;color:var(--fg)}
+.qi-prob{color:var(--fg3)}
+.qi-tail{color:var(--warn);font-size:var(--t-cap)}
+.qi-note{color:var(--fg3);font-size:var(--t-cap);flex-basis:100%}
+.qi-excluded{opacity:.7}
+
+/* ---- medical tiers ---- */
+.med-row{padding:6px 0;border-bottom:1px solid var(--hair2);font-size:var(--t-cap)}
+.med-row:last-child{border-bottom:0}
+.med-tier{font-weight:600}
+.med-tier.common{color:var(--warn)}
+.med-tier.rare{color:var(--crit)}
+.med-note{color:var(--fg3);font-size:var(--t-cap);margin-top:2px}
+
+/* ---- coverage + caveat ---- */
+.est-coverage{color:var(--fg2);font-size:var(--t-cap)}
+.est-caveat{color:var(--fg3);font-size:var(--t-cap);margin-top:8px;line-height:1.5}
+
+/* ---- concern badge palette (allowlisted suffixes; set by concernClass) ---- */
+.chip.concern-looks_unique{background:var(--crit-ghost);color:var(--crit);border-color:var(--hair)}
+.chip.concern-small_cohort{background:var(--crit-ghost);color:var(--crit);border-color:var(--hair)}
+.chip.concern-elevated{background:var(--warn-ghost);color:var(--warn);border-color:var(--hair)}
+.chip.concern-insufficient{background:var(--l3);color:var(--fg2);border-color:transparent}
+.chip.concern-none{background:var(--l3);color:var(--fg2);border-color:transparent}
+
+/* ---- file / upload rows ---- */
+.upload-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.filebtn{display:inline-block;background:var(--l3);color:var(--fg);border:1px solid var(--hair);
+         border-radius:var(--r-sm);padding:9px 14px;font-size:var(--t-ui);font-weight:600;cursor:pointer}
+.filebtn:hover{border-color:var(--fg4)}
+.filebtn:focus-within{box-shadow:var(--focus)}
+.filebtn.sm{padding:6px 11px;font-size:var(--t-cap)}
+.btn.sm{padding:6px 11px;font-size:var(--t-cap)}
+
+/* ---- batch document list ---- */
+.batch-doc{
+  border:1px solid var(--hair);border-radius:var(--r-sm);padding:10px 12px;margin-top:10px;
+  background:var(--l1);
+}
+.batch-doc .bd-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.batch-doc .bd-name{font-weight:600;font-size:var(--t-cap);color:var(--fg2)}
+.batch-doc textarea{min-height:80px;margin-top:8px}
+.batch-doc .bd-remove{color:var(--crit);font-size:var(--t-cap);background:none;border:0;cursor:pointer;font-weight:600}
+.batch-doc .bd-file{color:var(--fg3);font-size:var(--t-cap);font-family:var(--mono)}
+
+/* ---- release entity blocks ---- */
+.rel-entity{border:1px solid var(--hair);border-radius:var(--r-sm);padding:12px 14px;margin-top:12px}
+.rel-entity .re-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.rel-entity .re-name{font-weight:700;color:var(--fg2);font-size:var(--t-body)}
+.rel-entity .re-docs{color:var(--fg3);font-size:var(--t-cap)}
+.rel-entity .re-docs code{font-family:var(--mono);background:var(--l3);border-radius:4px;padding:0 4px}
+.rel-entity .re-lead{font-weight:700;color:var(--crit);margin:2px 0}
+.rel-entity .re-k{font-family:var(--mono);font-size:var(--t-cap);color:var(--fg2);font-variant-numeric:tabular-nums}

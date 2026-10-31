@@ -1,0 +1,19 @@
+{
+  "id": "sg.redaction.engine",
+  "version": "0.0.0",
+  "api": "0",
+  "kind": "native",
+  "publisher": {
+    "name": "lawdataman",
+    "signing_key_id": "DEV-UNSIGNED-PLACEHOLDER",
+    "trust_tier": "first-party"
+  },
+  "capabilities": [
+    "matter.read:document",
+    "matter.read:party",
+    "document.transform",
+    "audit.note",
+    "egress:[]"
+  ],
+  "declared_dataflow": "in-place identifier strip over document+party classes; deliberately broad but INCOMPLETE deterministic term+pattern matching (incl. a title-prefixed NAME HEURISTIC, NOT name detection; aggressive capitalized-run mode opt-in/off-by-default; no model, no compute.model); supports firm-defined recognizers (\"super find & replace\"): each a named rule with literal-vs-advanced-regex mode, case-match and whole-word options, and an OPTIONAL replacement string = configurable find-and-replace (None => [REDACTED] marker); user regex is safe (regex crate is linear-time, no ReDoS) and a bad pattern fails closed (CoreError::Backend), never panics; returns actual redaction candidates (with cleartext matched values + spans, custom-recognizer label = config name) IN-PROCESS for review only, never egressed; no egress; audit records count + per-recognizer breakdown (built-in tags + config recognizer NAMES) ONLY, never cleartext matched values or replacement strings; reasonable-efforts not safe-to-send"
+}

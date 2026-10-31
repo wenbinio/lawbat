@@ -1,0 +1,153 @@
+/*
+  Data-room (search + Tools) styles. Self-contained: system font stack only
+  (NO web fonts), no url() to any external resource. Inlined into dataroom.html
+  at startup so the page is one air-gapped document. (The footer carries two
+  target=_blank nav links to the AGPL licence + source — navigation, not a
+  resource load; see app/web.py's _build_dataroom_page air-gap check.)
+
+  TOKENS: this page does not inline base.css (see app/web.py _build_dataroom_page),
+  so it carries its OWN copy of the Lawbat v2 token block. app/ui/base.css is the
+  source of truth for the palette — keep the two in sync.
+  DELIBERATE omission: the --priv/--priv-ghost privilege-marking tokens are NOT copied
+  here — nothing on the data-room page renders privilege marking; add them only when a
+  priv chip/passage lands on this page (not palette drift).
+*/
+:root{
+  color-scheme:dark;
+  --l0:#121419; --l1:#171A21; --l2:#1D2129; --l3:#252B36;
+  --fg:#E8EAEE; --fg2:#B3B9C4; --fg3:#8A919E; --fg4:#5F6675;
+  --hair:#ffffff17; --hair2:#ffffff0b;
+  --accent:#D8A83C; --accent-ink:#171204;
+  --accent-ghost:#d8a83c1a; --accent-line:#d8a83c45;
+  --bar:#000; --bar-ink:#EDEBE3;
+  --good:#5CA57D; --good-ghost:#5ca57d18;
+  --warn:#C79A44; --warn-ghost:#c79a4418;
+  --crit:#DB7280; --crit-ghost:#db728018;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+  --t-label:11.5px; --t-cap:12.5px; --t-ui:13.5px;
+  --t-body:15.5px; --t-h3:17.5px; --t-h2:21px; --t-h1:27px;
+  --lh-body:1.45; --lh-ui:1.4; --lh-head:1.12;
+  --track-caps:.08em;
+  --r:10px; --r-sm:7px; --measure:68ch;
+}
+@media (prefers-color-scheme:light){
+  :root{
+    color-scheme:light;
+    --l0:#F3F3F4; --l1:#FAFAFB; --l2:#FFFFFF; --l3:#EDEEF0;
+    --fg:#1A1D23; --fg2:#4A505B; --fg3:#666D79; --fg4:#9BA1AC;
+    --hair:#00000019; --hair2:#0000000c;
+    --accent:#8E690F; --accent-ink:#FFFDF6;
+    --accent-ghost:#8e690f14; --accent-line:#8e690f40;
+    --bar:#0B0B0D; --bar-ink:#F2F0E9;
+    --good:#337552; --good-ghost:#33755214;
+    --warn:#8A6412; --warn-ghost:#8a641214;
+    --crit:#A63A4B; --crit-ghost:#a63a4b12;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --l0:#121419; --l1:#171A21; --l2:#1D2129; --l3:#252B36;
+  --fg:#E8EAEE; --fg2:#B3B9C4; --fg3:#8A919E; --fg4:#5F6675;
+  --hair:#ffffff17; --hair2:#ffffff0b;
+  --accent:#D8A83C; --accent-ink:#171204;
+  --accent-ghost:#d8a83c1a; --accent-line:#d8a83c45;
+  --bar:#000; --bar-ink:#EDEBE3;
+  --good:#5CA57D; --good-ghost:#5ca57d18;
+  --warn:#C79A44; --warn-ghost:#c79a4418;
+  --crit:#DB7280; --crit-ghost:#db728018;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --l0:#F3F3F4; --l1:#FAFAFB; --l2:#FFFFFF; --l3:#EDEEF0;
+  --fg:#1A1D23; --fg2:#4A505B; --fg3:#666D79; --fg4:#9BA1AC;
+  --hair:#00000019; --hair2:#0000000c;
+  --accent:#8E690F; --accent-ink:#FFFDF6;
+  --accent-ghost:#8e690f14; --accent-line:#8e690f40;
+  --bar:#0B0B0D; --bar-ink:#F2F0E9;
+  --good:#337552; --good-ghost:#33755214;
+  --warn:#8A6412; --warn-ghost:#8a641214;
+  --crit:#A63A4B; --crit-ghost:#a63a4b12;
+}
+
+  * { box-sizing: border-box; }
+  body { font: var(--t-body)/var(--lh-body) var(--sans);
+         margin: 0; background: var(--l0); color: var(--fg);
+         -webkit-font-smoothing: antialiased;
+         /* native checkbox ticks / radios inherit the one accent (pairs with color-scheme) */
+         accent-color: var(--accent); }
+  /* base.css's link treatment (this page does not inline base.css): accent colour,
+     underline on hover only — without this an anchor falls back to UA blue on dark */
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  header { background: var(--l1); color: var(--fg); padding: 14px 24px;
+           border-bottom: 1px solid var(--hair);
+           display:flex; justify-content:space-between; align-items:center; }
+  /* topbar brand mark — same "L" block as base.css's .topbar .logo */
+  header .brand { display:flex; align-items:center; gap:10px; min-width:0; }
+  header .logo { width:26px; height:26px; border-radius:7px; flex:none;
+           background:var(--bar); color:var(--bar-ink); outline:1px solid var(--hair);
+           display:flex; align-items:center; justify-content:center;
+           font-weight:700; font-size:var(--t-ui); letter-spacing:-.5px; }
+  header h1 { font-size: var(--t-h3); margin: 0; font-weight: 700;
+           line-height: var(--lh-head); letter-spacing: -.01em; }
+  header .stats { font-size: var(--t-cap); color: var(--fg3); margin-top: 4px;
+           font-variant-numeric: tabular-nums; }
+  header .stats a { color:var(--fg2); cursor:pointer; text-decoration:underline dotted; }
+  header .stats a:hover { color:var(--fg); }
+  header button { background:var(--l3); color:var(--fg); border:1px solid var(--hair);
+           border-radius:var(--r-sm); padding:6px 12px; cursor:pointer; font-size:var(--t-ui); margin-left:6px; }
+  header button:hover { border-color:var(--fg4); }
+  .actions { margin-top:8px; }
+  .mini { font-size:var(--t-cap); padding:4px 10px; border:1px solid var(--hair); border-radius:var(--r-sm);
+          background:var(--l3); color:var(--fg); cursor:pointer; margin-right:6px; }
+  .mini:hover { border-color:var(--fg4); }
+  .mini:disabled { color:var(--fg4); cursor:default; }
+  .mini:disabled:hover { border-color:var(--hair); }
+  .mini.primary { background:var(--accent); color:var(--accent-ink); border-color:transparent; }
+  .mini.primary:hover { filter:brightness(1.06); }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 24px; }
+  .center { max-width: 520px; margin: 12vh auto; text-align:center; }
+  .center h2 { font-size: var(--t-h2); margin-bottom: 8px; line-height:var(--lh-head); }
+  .center p { color:var(--fg3); margin-top:0; }
+  .big { padding: 13px 22px; font-size: var(--t-body); border: 0; border-radius: var(--r-sm);
+         background: var(--accent); color: var(--accent-ink); font-weight:600; cursor: pointer; }
+  .big:hover { filter:brightness(1.06); }
+  form { display: flex; gap: 8px; margin-bottom: 8px; }
+  input[type=text] { flex: 1; padding: 11px 14px; font-size: var(--t-body);
+         background: var(--l1); color: var(--fg);
+         border: 1px solid var(--hair); border-radius: var(--r-sm); }
+  input[type=text]::placeholder { color: var(--fg4); }
+  button.search { padding: 11px 20px; font-size: var(--t-body); border: 0; border-radius: var(--r-sm);
+         background: var(--accent); color: var(--accent-ink); font-weight:600; cursor: pointer; }
+  button.search:hover { filter:brightness(1.06); }
+  .syntax { font-size: var(--t-cap); color: var(--fg3); margin-bottom: 20px; }
+  .count { color: var(--fg3); font-size: var(--t-ui); margin: 0 0 12px;
+         font-variant-numeric: tabular-nums; }
+  .hit { background: var(--l2); border: 1px solid var(--hair); border-radius: var(--r-sm);
+         padding: 14px 16px; margin-bottom: 12px; }
+  .hit-file { font-weight: 600; }
+  .loc { font-weight: 400; color: var(--fg3); font-size: var(--t-ui); margin-left: 8px;
+         font-variant-numeric: tabular-nums; }
+  .snip { margin: 6px 0; color: var(--fg2); max-width: var(--measure); }
+  .snip mark { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--fg); border-radius:2px; padding: 0 2px; }
+  .path { font-size: var(--t-label); color: var(--fg4); font-family: var(--mono); word-break: break-all; }
+  .note { color: var(--fg3); }
+  .bar { height: 10px; background:var(--l3); border:1px solid var(--hair); border-radius:6px; overflow:hidden; margin:18px 0 8px; }
+  .bar > div { height:100%; background:var(--accent); width:0%; transition:width .2s; }
+  .matters { margin-top:24px; text-align:left; }
+  .matters a { display:block; padding:10px 12px; background:var(--l2); border:1px solid var(--hair);
+         border-radius:var(--r-sm); margin-bottom:8px; cursor:pointer; text-decoration:none; color:var(--fg); }
+  .matters a:hover { border-color:var(--fg4); }
+  .warn { background:var(--warn-ghost); border:1px solid var(--hair); color:var(--fg2); padding:10px 12px;
+         border-radius:var(--r-sm); font-size:var(--t-ui); margin-bottom:16px; }
+  table.idx { width:100%; border-collapse:collapse; font-size:var(--t-ui); background:var(--l2);
+         border:1px solid var(--hair); border-radius:var(--r-sm); overflow:hidden;
+         font-variant-numeric:tabular-nums; }
+  table.idx th { text-align:left; background:var(--l1); padding:8px 10px;
+         font:600 var(--t-label)/1.4 var(--mono); letter-spacing:var(--track-caps); text-transform:uppercase;
+         color:var(--fg3); border-bottom:1px solid var(--hair); }
+  table.idx td { padding:7px 10px; border-top:1px solid var(--hair2); vertical-align:top; }
+  /* fg3 (not fg4): the licence line is read, not de-emphasis — fg4 fails contrast here */
+  footer.lic { text-align:center; color:var(--fg3); font-size:var(--t-label); padding:14px; }
+  footer.lic a { color:var(--fg3); text-decoration:underline; }

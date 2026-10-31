@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[package]
+name = "redaction"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Module #1 (spec §10): the flagship NATIVE first-party redaction module, bound
+# directly to the trusted-core `Core` traits/methods — no WASM this increment.
+#
+# DEPENDENCY POLICY (CLAUDE.md non-negotiables): deterministic detection ONLY.
+# NO Presidio / spaCy / ML / model / Python / network deps anywhere. The core
+# detection engine depends on exactly two things:
+#   - `runtime` (the trusted core) — to reach mediated matter.read / document.transform
+#   - `regex`   (pure compute)     — deterministic pattern recognizers (no RNG, no I/O)
+# The PDF-redaction path (`pdf.rs`) adds two more, each EXPLICITLY signed off (the
+# PDF/native-format track): `lopdf` (pure-Rust PDF object parse/serialize) and
+# `flate2` (CAPPED FlateDecode — see the per-dep notes below). lopdf pulls a
+# transitive `getrandom`/`rand` (its unused PDF-encryption support); that is
+# ACCEPTED in this data-plane crate but is GUARDED out of the trusted core
+# (the minimal trusted core `runtime`) by a CI check (.github/workflows/ci.yml
+# "core stays RNG-free"). (host is the wasmtime spike-runner — it carries an RNG on
+# some platforms anyway and never depends on lopdf, so the guard checks runtime only.)
+# Adding anything beyond these needs explicit sign-off.
+[dependencies]
+runtime = { path = "../runtime" }
+regex = "1"
+# PDF redaction track (explicitly signed off): pure-Rust, MIT-licensed PDF object
+# parser/serializer. Used ONLY by `pdf.rs` to parse hostile PDF bytes, rewrite the
+# text-showing operators in each page's content stream, and re-serialize. No
+# network, no model, no Python. `default-features = false` drops the optional
+# extras (chrono, embed_image, rayon, …) we do not use, keeping the dependency +
+# attack surface minimal; the pure-Rust object parser + FlateDecode (via flate2)
+# remain.
+lopdf = { version = "0.41", default-features = false }
+# CAPPED decompression (H1 — decompression-bomb defence). We deliberately do NOT
+# use lopdf's `decompressed_content()`: it inflates a stream with NO size cap
+# (`ZlibDecoder::read_to_end`), so a tiny FlateDecode stream can OOM the process
+# BEFORE any text budget is consulted. Instead `pdf.rs` decodes FlateDecode
+# through `flate2` wrapped in `Read::take(cap + 1)`, bounding peak allocation per
+# stream. flate2 is already in the tree (a transitive dep of lopdf, same major);
+# declaring it directly is required to call it ourselves.
+flate2 = "1"
+# INDUCTION persistence wire form (OPTIONAL — behind the `serde` feature; OFF by
+# default). The "saved + named" `RecognizerLibrary` (plus `UserRecognizer` /
+# `MatchMode`) serialize to/from JSON so the HOST/shell can persist them to disk —
+# this crate holds NO fs capability, so disk persistence is the host's job; serde
+# is only the wire form. serde is PURE COMPUTE (no network / no I/O / no RNG) and
+# only its derive is pulled in: it adds NO capability and NO egress, so the
+# default (no-`serde`) build keeps the minimal `runtime`+`regex`(+pdf) surface and
+# the core logic works WITHOUT it. Mirrors `crates/view`'s gated serde feature.
+serde = { version = "1", optional = true, default-features = false, features = ["derive", "std"] }
+
+[features]
+# Opt-in `#[derive(serde::{Serialize,Deserialize})]` on `UserRecognizer`,
+# `MatchMode`, and the `RecognizerLibrary` wire form. OFF by default (the shipped
+# redaction engine does not serialize recognizers — that is the host's seam).
+serde = ["dep:serde"]
+
+# SECURITY (C-1): redaction's NON-test code never touches the dev key — it binds
+# the production `Core` traits only. Its TEST suite, however, wires deterministic
+# `InMemoryAudit::with_clock(FixedClock::..)` doubles, which are gated behind
+# `runtime`'s `dev-audit-key` feature. Enable that feature for tests ONLY via a
+# dev-dependency, so the shipped redaction library does not pull the dev key in.
+[dev-dependencies]
+runtime = { path = "../runtime", features = ["dev-audit-key"] }
+# JSON for the OPT-IN serde round-trip test ONLY (run via `--features serde`).
+# Pure compute (no network / no I/O / no RNG); serde-family, already in the
+# workspace lock (viewgen uses it). A DEV-dependency, so the shipped library never
+# pulls it in.
+serde_json = "1"

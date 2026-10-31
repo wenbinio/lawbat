@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Bundled third-party binaries (Tesseract/qpdf/pdfium/WebView2/embeddable Python).
+# These are laid down by the MSI build on Windows, never committed to this PUBLIC repo
+# (size + redistribution hygiene). See docs/packaging.md.
+vendor/
+
+# Build artifacts (NOT the build/ source scripts, which ARE committed).
+# Only the staging/output dirs the Windows build script writes into:
+#   build/stage/  assembled payload tree (embeddable python + site-packages + app)
+#   build/out/    produced .msi + wix intermediates
+#   build/_dl/    downloaded+verified tool archives (embeddable python, get-pip, ...)
+build/stage/
+build/out/
+build/_dl/
+dist/
+*.msi
+*.wixobj
+*.wixpdb
+
+# Rust trusted-core workspace build dirs (incl. the wasm32-wasip2 guest target).
+# Cargo.lock IS committed (these crates are apps/bins, not libs). See core/README.md.
+core/target/
+target/
+*.wasm
+
+# Claude Code agent worktrees (transient parallel-agent checkouts under .claude/).
+# Never committed — they are isolated working copies of this same repo.
+.claude/
+
+# Local app data / matter DBs (should never be in git anyway)
+*.db
+*.db-wal
+*.db-shm
+
+# Platform-architecture / strategy DRAFTS staged for review. CLAUDE.md: these are
+# kept out of this PUBLIC repo on purpose (the core-module architecture spec is the
+# private source of truth). Never commit anything under here.

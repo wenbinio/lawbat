@@ -1,0 +1,108 @@
+<!doctype html>
+<!--
+  lawdataman — firmOS HOME (dashboard). The app's LANDING page.
+
+  Self-contained + air-gapped: home.css and home.js are INLINED into this page by
+  the server at startup (app/web.py reads app/ui/*, escapes the token, and serves
+  one document). NO external resources — no web fonts, no CDN, no <script src>. The
+  page works on an air-gapped machine and inside the no-URL-bar pywebview window.
+
+  This is the TRUSTED HOST shell (not a sandboxed module), so host JS is allowed
+  here. It fetches the typed view-model from /api/home and renders it into the DOM;
+  every matter-derived string is escaped via esc() before insertion. The Data Room
+  search / Tools live as MODULES reached from this Home (the launcher + the "Open
+  data room" card open /app — the prior landing page).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="drr-token" content="__DRR_TOKEN__">
+<title>Lawbat — Home</title>
+<!-- favicon: a black redaction bar, inline data: URI (nothing fetched — air-gap holds;
+     base64 so the strict no-http(s) page guard never sees a scheme literal from the
+     svg's xmlns namespace IDENTIFIER, which is not a network reference) -->
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHJlY3QgeD0iMSIgeT0iNS41IiB3aWR0aD0iMTQiIGhlaWdodD0iNSIgcng9IjEuNSIvPjwvc3ZnPg==">
+<style>
+/* __HOME_CSS__ */
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ===== module launcher (left rail) ===== -->
+  <nav class="nav">
+    <div class="brand">Lawbat<small>local · offline · no AI</small></div>
+    <a class="active" href="#" data-action="home"><span class="ic" aria-hidden="true">&#9638;</span> Home</a>
+    <a href="#" data-action="inbox"><span class="ic" aria-hidden="true">&#9993;</span> Inbox</a>
+    <a href="/app" data-action="dataroom"><span class="ic" aria-hidden="true">&#128270;</span> Data Room &mdash; search</a>
+    <a href="/app" data-action="docindex"><span class="ic" aria-hidden="true">&#9636;</span> Document index</a>
+    <a href="/redaction" data-action="redaction"><span class="ic" aria-hidden="true">&#11035;</span> Redaction</a>
+    <a href="/reid-risk" data-action="reidrisk"><span class="ic" aria-hidden="true">&#9888;</span> Re-ID risk</a>
+    <a href="#" data-action="timesheet"><span class="ic" aria-hidden="true">&#9201;</span> Timesheet</a>
+    <div class="sec">Matters</div>
+    <div id="navMatters" class="nav-matters"></div>
+    <div class="spacer"></div>
+    <div class="foot" id="navFoot">Local-only. Nothing leaves this machine.</div>
+  </nav>
+
+  <!-- ===== main ===== -->
+  <div class="main">
+    <div class="topbar">
+      <h1 id="greeting">Home</h1>
+      <div class="who">All data stays on <b>this machine</b> &middot; no network, no AI</div>
+    </div>
+
+    <div class="wrap">
+      <!-- honest-limits caveat banner(s), rendered from the contract's section caveats -->
+      <div id="caveats"></div>
+
+      <!-- preview banner: shown only when the view-model is the bundled sample -->
+      <div id="previewNote"></div>
+
+      <!-- global strip over the user's own files -->
+      <div class="global" id="global"></div>
+
+      <div class="cols">
+        <!-- worklist: the inbox "what's next", rendered from the contract sections -->
+        <section>
+          <div class="panel-h">
+            <h2>What do I do next</h2>
+            <span class="sub" id="worklistSub"></span>
+          </div>
+          <div class="datenote" id="genLabel"></div>
+          <div id="worklist"></div>
+        </section>
+
+        <!-- right rail: deadlines summary + module launcher -->
+        <aside class="rail">
+          <div class="box">
+            <h3>Deadlines</h3>
+            <div id="deadlines"></div>
+            <div class="note">Only deadlines written as dates. Confirm your own diary.</div>
+          </div>
+          <div class="box launch">
+            <h3>Jump to</h3>
+            <a href="/app" data-action="dataroom"><span class="ic" aria-hidden="true">&#128270;</span><span>Search the data room<br><span class="desc">full-text across your indexed docs</span></span></a>
+            <a href="/redaction" data-action="redaction"><span class="ic" aria-hidden="true">&#11035;</span><span>Redaction review<br><span class="desc">strip identifiers, lawyer sign-off</span></span></a>
+            <a href="/reid-risk" data-action="reidrisk"><span class="ic" aria-hidden="true">&#9888;</span><span>Re-identification risk<br><span class="desc">k-value estimate &middot; optimistic lower bound</span></span></a>
+            <a href="/app" data-action="docindex"><span class="ic" aria-hidden="true">&#9636;</span><span>Document index<br><span class="desc">schedule of documents (CSV)</span></span></a>
+            <a href="#" data-action="timesheet"><span class="ic" aria-hidden="true">&#9201;</span><span>Timesheet<br><span class="desc">one-click timer &middot; draft narratives</span></span></a>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span><b>Local-only</b> &mdash; nothing leaves this machine</span>
+      <span><b>Deterministic</b> &mdash; rule-based, no model calls</span>
+      <span><b>Audited</b> &mdash; every read &amp; action logged</span>
+    </div>
+  </div>
+</div>
+<script>
+/* __BASE_JS__ */
+/* __HOME_JS__ */
+</script>
+</body>
+</html>

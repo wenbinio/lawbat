@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[package]
+name = "redact-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# redact-cli — the THIN host-wiring CLI for the redaction module, the SAME
+# subprocess/JSON boundary pattern as `viewgen` (NO Rust HTTP server, NO pyo3). The
+# Python shell renders the two-tier review UI; this bin is the Rust side that runs the
+# deterministic redaction engine and exchanges JSON over stdin/stdout.
+#
+# It is a PURE-TEXT tool: the host hands it text on STDIN (never argv — matter text
+# must not appear in the process arguments / `ps`), it returns tiered candidates (scan)
+# or the redacted text for an accept-set (apply). It holds NO Core/audit/egress — the
+# off-chokepoint `RedactionEngine::redact_with_selection` path — so it pulls in no
+# audit-key custody (the deferred compliance gate); the host owns any logging.
+#
+# DEPENDENCY POLICY (CLAUDE.md non-negotiables): PURE COMPUTE, NO network / async /
+# TLS / model. Depends on exactly:
+#   - `redaction` — the deterministic engine (detection + the two-tier routing +
+#                   the pure selection apply). It transitively carries `lopdf`'s
+#                   unused `getrandom`/`rand` (PDF-encryption support) — ACCEPTED in a
+#                   bin (the "core stays RNG-free" CI guard checks `runtime` only; this
+#                   bin is not `runtime` and `runtime` does not depend on it).
+#   - `extract`   — the deterministic doc->text extractor (.eml/.docx/.pdf), so the
+#                   bin can redact a FILE, not just pasted text. Pure compute, no
+#                   network; its deps (zip/quick-xml/lopdf/flate2/mail-parser/
+#                   encoding_rs) are confined to this bin, never `runtime`.
+#   - `base64`    — decode the file bytes the host hands us as base64 inside the JSON
+#                   request (the stdin boundary is JSON/text, so binary arrives b64).
+#                   Pure compute, no network/RNG/I/O.
+#   - `serde` / `serde_json` — deterministic JSON I/O (we build our OWN serializable
+#                   DTOs from the engine's public accessors; we do NOT enable
+#                   redaction's `serde` feature). Verify with `cargo tree -p redact-cli`.
+# Adding any other dependency here needs explicit sign-off.
+[dependencies]
+redaction = { path = "../redaction" }
+extract = { path = "../extract" }
+base64 = "0.22"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# `verify` op only: hex SHA-256 of the probed artifact bytes, so the
+# firmos.verify/0 response binds "what was probed" to "what was delivered".
+# Pure compute (no network / RNG / I/O); ALREADY in the workspace lock (the
+# trusted core `runtime` uses the same sha2 for its audit chain) — zero new
+# packages, no new capability.
+sha2 = "0.10"
+
+[dev-dependencies]
+# Build a tiny PDF (with a planted identifier) in the PDF-op tests — same lopdf the
+# redaction/extract crates use. Test-only; never ships in the bin.
+lopdf = { version = "0.41", default-features = false }
+# Build a tiny Outlook .msg (CFB) in the extract_scan test — same cfb the extract crate
+# uses. Test-only; never ships in the bin.
+cfb = "0.14"
+# Build a tiny .docx (ZIP) in the NBSP-phone extract_scan regression test — the SAME
+# zip crate (same de-featured config) the extract crate reads with. Test-only; never
+# ships in the bin; already in the workspace lock via extract (zero new packages).
+zip = { version = "2", default-features = false, features = ["deflate"] }
