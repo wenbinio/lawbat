@@ -1,0 +1,6 @@
+{
+  "attestationUrl": "http://127.0.0.1:8765/attestation",
+  "chainSelectorName": "ethereum-testnet-sepolia",
+  "consumerAddress": "0x0000000000000000000000000000000000000001",
+  "gasLimit": "500000"
+}

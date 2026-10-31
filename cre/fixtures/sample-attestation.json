@@ -1,0 +1,25 @@
+{
+  "accepted": 4,
+  "could_not_remove": 0,
+  "counts_by_category": {
+    "email": 2,
+    "id": 1,
+    "phone": 1
+  },
+  "document_sha256": "c00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61",
+  "note": "hashes and counts only; no document text leaves this record. Not a clearance to disclose the document.",
+  "ocr_used": false,
+  "reid_risk": {
+    "direction": "optimistic \u2014 may under-state risk",
+    "is_estimate": true,
+    "k": 12.5,
+    "level": "high",
+    "level_code": 2
+  },
+  "rejected": 1,
+  "report_sha256": "a2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e",
+  "schema": "lawbat.redaction-attestation/1",
+  "timestamp": "2026-10-31T00:00:00Z",
+  "tool_version": "0.1.1",
+  "verification_state": "checked"
+}

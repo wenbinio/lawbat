@@ -1,0 +1,106 @@
+===== cre workflow build and cre workflow simulate =====
+$ cre version
+CRE CLI version v1.39.0
+
+$ cre workflow build workflow --target local-simulation
+  Compiling workflow...
+✓ Workflow compiled successfully
+  Binary hash: 594a17d7d2e2cbf24b1d41d1d84581dc59f7eeba063cef755b2784718ef79955
+✓ Build output written to /workspace/cre/workflow/binary.wasm
+
+$ cre workflow simulate workflow --target local-simulation --non-interactive --trigger-index 0 --http-payload '{"attestationUrl":"http://127.0.0.1:8765/attestation"}'
+Initializing...
+
+! You are not logged in
+
+✗ Authentication required: not logged in and no CRE_API_KEY set
+  → Run 'cre login' interactively, or
+  → Set CRE_API_KEY environment variable for non-interactive use
+✗ authentication required: no credentials found: you are not logged in, run cre login and try again
+exit code: 1
+
+===== ./cre/simulate-local.sh =====
+== build fictional attestation ==
+document_sha256 c00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61
+report_sha256 a2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e
+risk high 2
+counts {'email': 2, 'id': 1, 'phone': 1}
+== serve attestation on 127.0.0.1:8765 ==
+== fetch attestation (external HTTP call) ==
+{
+    "accepted": 4,
+    "could_not_remove": 0,
+    "counts_by_category": {
+        "email": 2,
+        "id": 1,
+        "phone": 1
+    },
+    "document_sha256": "c00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61",
+    "note": "hashes and counts only; no document text leaves this record. Not a clearance to disclose the document.",
+    "ocr_used": false,
+    "reid_risk": {
+        "direction": "optimistic \u2014 may under-state risk",
+        "is_estimate": true,
+        "k": 12.5,
+        "level": "high",
+        "level_code": 2
+    },
+    "rejected": 1,
+    "report_sha256": "a2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e",
+    "schema": "lawbat.redaction-attestation/1",
+    "timestamp": "2026-10-31T11:56:27Z",
+    "tool_version": "0.1.1",
+    "verification_state": "checked"
+}
+== anvil chain-id 11155111 on http://127.0.0.1:18545 ==
+chain-id 11155111
+== deploy RedactionRegistry (forwarder = anvil account 0) ==
+No files changed, compilation skipped
+Deployer: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+Deployed to: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+Transaction hash: 0x9270a46d450d04fed3ec4f442fef6bb5fdd9216638fcc9d21bdc71aba62602f9
+registry 0x5FbDB2315678afecb367f032d93F642f64180aa3
+== abi-encode the attestation and call onReport ==
+
+blockHash            0x0d6e9479697439f0f95054501a887d75c45571446bc5d8554e0233cdfe1a3273
+blockNumber          2
+contractAddress      
+cumulativeGasUsed    70555
+effectiveGasPrice    877640660
+from                 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+gasUsed              70555
+logs                 [{"address":"0x5fbdb2315678afecb367f032d93f642f64180aa3","topics":["0xd8698ea31f784f7eb1a41e7bdcb10dc6982f7492d7dce6075a2e5a4162c758d8","0xc00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61"],"data":"0xa2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000006ae5d76b","blockHash":"0x0d6e9479697439f0f95054501a887d75c45571446bc5d8554e0233cdfe1a3273","blockNumber":"0x2","blockTimestamp":"0x6ae5d76b","transactionHash":"0xf056264053735ebbd7db6595b4a8e6e306857b7eabc5eb97426a234b15e6f570","transactionIndex":"0x0","logIndex":"0x0","removed":false}]
+logsBloom            0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000044000000000000000000000000000000000000000000000000080000000000000000000000000000000000000400000000000000000000000200000000000000000000000000000000000000000000000000000000000000000010000000000040000000000400000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+root                 
+status               1 (success)
+transactionHash      0xf056264053735ebbd7db6595b4a8e6e306857b7eabc5eb97426a234b15e6f570
+transactionIndex     0
+type                 2
+blobGasPrice         
+blobGasUsed          
+to                   0x5FbDB2315678afecb367f032d93F642f64180aa3
+== read back getAttestation(docHash) ==
+0xa2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e
+2
+1793447787 [1.793e9]
+1793447787 [1.793e9]
+read-back matches docHash
+== RedactionAttested logs ==
+- address: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+  blockHash: 0x0d6e9479697439f0f95054501a887d75c45571446bc5d8554e0233cdfe1a3273
+  blockNumber: 2
+  data: 0xa2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000006ae5d76b
+  logIndex: 0
+  removed: false
+  topics: [
+  	0xd8698ea31f784f7eb1a41e7bdcb10dc6982f7492d7dce6075a2e5a4162c758d8
+  	0xc00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61
+  ]
+  transactionHash: 0xf056264053735ebbd7db6595b4a8e6e306857b7eabc5eb97426a234b15e6f570
+  transactionIndex: 0
+  decoded:
+  	docHash: 0xc00fa5552c2163e586279bec72ed7436b095b4d07c46a0485dce535359b7cf61
+  	reportHash: 0xa2ad3d397b3a6f3117726ab028fd8a2a055c1319efe5a4e0196446d0edbb462e
+  	riskLevel: 2
+  	ts: 1793447787 [1.793e9]
+LOCAL_DRY_RUN_OK registry=0x5FbDB2315678afecb367f032d93F642f64180aa3

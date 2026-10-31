@@ -43,3 +43,15 @@ target/
 
 # Local index created by ./run.sh --demo (fictional sample room only).
 .demo-data/
+
+# Chainlink CRE install and local-chain artifacts. The workflow source is committed.
+# No .env, no WASM binary, no Foundry cache.
+cre/workflow/node_modules/
+cre/workflow/.cre_build_tmp.js
+cre/contracts/out/
+cre/contracts/cache/
+cre/contracts/broadcast/
+cre/contracts/lib/
+cre/.local-sim/
+cre/**/.env
+.env

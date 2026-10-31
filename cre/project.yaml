@@ -1,0 +1,7 @@
+# RPC for local simulation. This is a loopback Anvil node, not a funded testnet.
+# Start it with cre/simulate-local.sh (chain id 11155111, the Sepolia id) before
+# a logged-in `cre workflow simulate` that should reach the EVM capability.
+local-simulation:
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: http://127.0.0.1:18545

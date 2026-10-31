@@ -1,0 +1,10 @@
+# local-simulation is the target used by `cre workflow simulate`.
+# HTTP trigger authorization keys are intentionally empty: that is valid for
+# simulation only. A deployment must set KEY_TYPE_ECDSA_EVM authorizedKeys.
+local-simulation:
+  user-workflow:
+    workflow-name: "lawbat-redaction-attestation"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.local.json"
+    secrets-path: ""
