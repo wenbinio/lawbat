@@ -50,6 +50,7 @@ from .paths import (
 )
 from .osio import open_path, reveal_in_folder
 from .viewmodel import get_home_view
+from . import attestation
 from . import redactionmodel
 from . import reidrisk
 from .queries import (
@@ -180,6 +181,9 @@ class AppState:
         # Minted once here; the served page embeds it and echoes it back.
         self.token: str = secrets.token_urlsafe(32)
         self._lock = threading.Lock()
+        # Last privacy-preserving redaction attestation (hashes and counts only).
+        # GET /api/attestation/latest serves this. It never holds document text.
+        self.latest_attestation: dict | None = None
 
 
 # ---------------------------------------------------------------- queries ---
@@ -511,6 +515,7 @@ def create_app(state: AppState) -> FastAPI:
     #   GET /api/index/status                          (progress poll)
     #   GET /api/sources, /api/search, /api/files      (read-only over the open matter)
     #   GET /api/tools/manifest, /api/tools/manifest.csv  (read-only schedule + CSV)
+    #   GET /api/attestation/latest                    (hashes and counts only)
     # NOTE: /api/redaction/health is a DELIBERATELY GUARDED GET (like /api/redaction/sample,
     # in app/redactionroutes.py) — it now spawns the redact-cli process per call, not just a
     # path-exists check, so it must not be an open fork-the-bin surface.
@@ -632,6 +637,27 @@ def create_app(state: AppState) -> FastAPI:
             "python": sys.version.split()[0],
             "platform": platform.platform(),
         })
+
+    @app.post("/api/attestation", dependencies=_TOKEN_GUARD)
+    def api_attestation(payload: dict = Body(...)):
+        """Build a redaction attestation from counts and hashes. The response and the
+        stored copy omit document text, filenames, and party names."""
+        try:
+            built = attestation.attestation_from_request(payload)
+        except attestation.AttestationError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        with state._lock:
+            state.latest_attestation = built
+        return JSONResponse(built)
+
+    @app.get("/api/attestation/latest")
+    def api_attestation_latest():
+        """The last attestation built in this process. Hashes and counts only."""
+        with state._lock:
+            current = state.latest_attestation
+        if current is None:
+            return JSONResponse({"error": "no attestation yet"}, status_code=404)
+        return JSONResponse(current)
 
     @app.get("/api/demo/sample", dependencies=_TOKEN_GUARD)
     def api_demo_sample():

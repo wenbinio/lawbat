@@ -107,7 +107,8 @@ import tests.smoke as smoke_pkg  # noqa: E402
 # 2026-07-17 (demo-readiness audit cosmetics): +1 — pasted-text export default name keeps a
 # SINGLE .redacted marker ("redacted.txt", collision-append preserved; a filename hint still
 # yields "<name>.redacted.<ext>").
-_MIN_TESTS = 288
+# 2026-10-31: +5 for the redaction attestation (tests/smoke/test_attestation.py).
+_MIN_TESTS = 293
 
 
 def discover():
