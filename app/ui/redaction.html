@@ -39,31 +39,16 @@
 /* __REDACTION_CSS__ */
 </style>
 </head>
-<body>
+<body data-demo="__DEMO__" data-demo="__DEMO__">
 <header class="lb-shell"><a class="lb-brand" href="/"><img alt="" width="32" height="32" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiB2aWV3Qm94PSIwIDAgMjU2IDI1NiI+CiAgPHJlY3QgeD0iOCIgeT0iOCIgd2lkdGg9IjI0MCIgaGVpZ2h0PSIyNDAiIHJ4PSI1NiIgZmlsbD0iIzE0MTYxYiIvPgogIDxwYXRoIGZpbGw9IiNmMmU4Y2YiIGQ9Ik0yNCA4NEw2NyA3MEwxMDEgODRMMTE1IDEwM0wxMTIgNjhMMTI4IDg0TDE0NCA2OEwxNDEgMTAzTDE1NSA4NEwxODkgNzBMMjMyIDg0TDIxNiAxMDVMMjMwIDExOUwyMDcgMTMwTDIxOCAxNTFMMTgzIDE0OEwxNzcgMTc0TDE0OCAxNTVMMTI4IDE5NEwxMDggMTU1TDc5IDE3NEw3MyAxNDhMMzggMTUxTDQ5IDEzMEwyNiAxMTlMNDAgMTA1WiIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTI4LDEwMiAxNDMsMTI2IDEyOCwxNzQgMTEzLDEyNiIgZmlsbD0iI2UwYTk0ZiIvPgo8L3N2Zz4K"><span>Lawbat</span></a><nav class="lb-nav" aria-label="Primary"><a href="/">Home</a><a href="/app">Search</a><a href="/workspace">Documents</a><a href="/redaction" aria-current="page">Redaction</a><a href="/reid-risk">Re-ID risk</a><a href="/app#tools">Tools</a></nav></header>
 <div class="lb-next"><span>After you save, check what a reader could still infer.</span><a href="/reid-risk">Check re-identification risk</a></div>
 
-<div style="padding:10px 24px;background:#e7f3ef"><a href="/workspace">Open document workspace: combined text and image review →</a></div>
 <a class="skip" href="#main">Skip to main content</a>
 <!-- one shared live region announces cross-stage status to screen readers -->
 <div id="live" class="vh" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <div class="app">
-  <!-- unified topbar: logo + page title + a live "tool ready / offline" chip -->
-  <div class="topbar">
-    <div class="brand">
-      <img class="logo" alt="" width="26" height="26" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiB2aWV3Qm94PSIwIDAgMjU2IDI1NiI+CiAgPHJlY3QgeD0iOCIgeT0iOCIgd2lkdGg9IjI0MCIgaGVpZ2h0PSIyNDAiIHJ4PSI1NiIgZmlsbD0iIzE0MTYxYiIvPgogIDxwYXRoIGZpbGw9IiNmMmU4Y2YiIGQ9Ik0yNCA4NEw2NyA3MEwxMDEgODRMMTE1IDEwM0wxMTIgNjhMMTI4IDg0TDE0NCA2OEwxNDEgMTAzTDE1NSA4NEwxODkgNzBMMjMyIDg0TDIxNiAxMDVMMjMwIDExOUwyMDcgMTMwTDIxOCAxNTFMMTgzIDE0OEwxNzcgMTc0TDE0OCAxNTVMMTI4IDE5NEwxMDggMTU1TDc5IDE3NEw3MyAxNDhMMzggMTUxTDQ5IDEzMEwyNiAxMTlMNDAgMTA1WiIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTI4LDEwMiAxNDMsMTI2IDEyOCwxNzQgMTEzLDEyNiIgZmlsbD0iI2UwYTk0ZiIvPgo8L3N2Zz4K">
-      <div class="titles">
-        <h1>Redaction reviewer</h1>
-        <div class="sub" id="docSub">Lawbat</div>
-      </div>
-    </div>
-    <div class="actions">
-      <!-- engine-health chip, set ON LOAD by the health probe (ready / offline) -->
-      <span id="engineChip" class="chip neutral" title="Checking the redaction tool&hellip;">Checking&hellip;</span>
-      <a class="back" href="/">&larr; Home</a>
-    </div>
-  </div>
+  <h1 class="lb-page">Redaction</h1>
 
   <!-- ===== PERSISTENT STEPPER (progress + gates) =====
        Document -> Detect -> Review -> Export -> Report. The former "Sensitive passages"
@@ -122,7 +107,8 @@
        footer strip, never in the working area. -->
   <div class="chipbar" id="chipbar" role="status" aria-label="Tool status">
     <span class="chip ok" title="Everything happens on this computer — nothing leaves this machine.">Local only</span>
-    <span class="chip high hidden" id="ocrChip"
+    <span id="engineChip" class="chip neutral" title="Checking the redaction tool&hellip;">Checking&hellip;</span>
+    <span class="chip neutral hidden" id="ocrChip"
       title="The OCR engine (Tesseract) isn’t available, so scanned/photo PDFs can’t be read as images on this machine.">OCR unavailable</span>
     <span class="chip neutral hidden" id="findingsChip" title="Potential identifiers found by the last scan.">0 findings</span>
     <span class="chip med hidden" id="humanReviewChip"
@@ -214,6 +200,7 @@
              whole reviewer without finding a file of their own. -->
         <div class="sample-row">
           <button type="button" id="sampleBtn" class="btn ghost sm">Try it with a sample document</button>
+          <button type="button" id="harbourBtn" class="btn ghost sm">Load Harbour Lane sample</button>
           <span class="hint" id="sampleHint">Loads a made-up practice file (no real data) so you can see how it works.</span>
         </div>
 

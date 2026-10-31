@@ -117,23 +117,29 @@ function renderCaveats(sections){
   var host = document.getElementById('caveats');
   host.innerHTML = '';
   var seen = {};
+  var items = [];
   (sections || []).forEach(function(sec){
     (sec.caveats || []).forEach(function(cav){
-      if (seen[cav.id]) return;        // de-dupe across sections
+      if (!cav || seen[cav.id]) return;
       seen[cav.id] = true;
-      if (cav.dismissible && isDismissed(cav.id)) return;  // user silenced this id
-      var el = document.createElement('div');
-      el.className = 'caveat';
-      el.dataset.caveatId = cav.id;
-      var btn = cav.dismissible
-        ? '<button data-dismiss-caveat="' + esc(cav.id) + '">Ignore all further warnings</button>'
-        : '';
-      el.innerHTML = '<div class="ic" aria-hidden="true">⚠️</div>'
-        + '<div class="body"><b>Assistive worklist — not a deadline calendar.</b>'
-        + '<p>' + esc(cav.message) + '</p></div>' + btn;
-      host.appendChild(el);
+      if (cav.dismissible && isDismissed(cav.id)) return;
+      items.push(cav);
     });
   });
+  if (!items.length) return;
+  var el = document.createElement('details');
+  el.className = 'caveat compact';
+  var lis = items.map(function(cav){
+    return '<li data-caveat-id="' + esc(cav.id) + '">' + esc(cav.message) + '</li>';
+  }).join('');
+  var dismissible = items.some(function(cav){ return cav.dismissible; });
+  var btn = dismissible
+    ? '<button type="button" data-dismiss-caveat="' + esc(items[0].id) + '">Ignore all further warnings</button>'
+    : '';
+  el.innerHTML = '<summary>Assistive worklist — not a deadline calendar. ' + items.length
+    + ' note' + (items.length === 1 ? '' : 's') + '.</summary>'
+    + '<div class="body"><ul>' + lis + '</ul>' + btn + '</div>';
+  host.appendChild(el);
 }
 
 // --- global strip + matters rail + deadlines + greeting ----------------------
@@ -231,6 +237,11 @@ function wireEvents(){
       setDismissed(id);
       var banner = t.closest('.caveat');
       if (banner) banner.remove();
+      // One merged notice: silencing the control clears every dismissible id on it.
+      document.querySelectorAll('#caveats [data-caveat-id]').forEach(function(li){
+        var cid = li.getAttribute('data-caveat-id');
+        if (cid) setDismissed(cid);
+      });
       return;
     }
     var a = ev.target.closest('[data-action-id]');

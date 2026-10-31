@@ -128,6 +128,13 @@
   function setOcrAvailable(ok){
     var chip = $('ocrChip');
     if (!chip) return;
+    var demo = document.body && document.body.getAttribute('data-demo') === '1';
+    if (ok === false && demo) {
+      chip.className = 'chip neutral';
+      chip.textContent = 'OCR not installed';
+      chip.title = 'Scanned pages stay labelled as needing OCR. Born-digital text still redacts.';
+      return;
+    }
     chip.classList.toggle('hidden', ok !== false);
   }
 

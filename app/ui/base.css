@@ -335,8 +335,11 @@ textarea::placeholder,.text-input::placeholder{color:var(--fg4)}
 .lb-nav a:hover{background:#242830;color:#f2e8cf}
 .lb-nav a[aria-current="page"]{background:#e0a94f;color:#14161b;font-weight:700}
 .lb-next{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;align-items:center;
+  min-height:44px;box-sizing:border-box;
   padding:8px 18px;background:#1c1f27;color:#ddd4bc;font-size:13px;
+  border-bottom:1px solid #ffffff14;
   font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.lb-page{margin:0;padding:16px 24px 4px;font-size:22px;letter-spacing:-.02em;font-weight:700;color:var(--fg)}
 .lb-next span{margin-right:auto}
 .lb-next a{color:#14161b;background:#e0a94f;text-decoration:none;border-radius:8px;padding:7px 12px;font-weight:650}
 .lb-next a.ghost{background:transparent;color:#f2e8cf;border:1px solid #e0a94f}

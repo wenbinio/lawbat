@@ -106,6 +106,10 @@ body{font-family:var(--sans);
 .wrap{padding:20px 26px;max-width:1180px}
 
 /* honest-limits caveat + preview note */
+.caveat.compact{padding:8px 12px;margin:12px 0 0}
+.caveat.compact summary{cursor:pointer;color:var(--warn);font-weight:650}
+.caveat.compact ul{margin:8px 0 0;padding-left:18px;color:var(--fg2);font-size:var(--t-cap)}
+.caveat.compact button{margin-top:8px}
 .caveat{background:var(--warn-ghost);border:1px solid var(--hair);border-radius:var(--r);
         padding:13px 15px;display:flex;gap:12px;align-items:flex-start;margin-bottom:18px}
 .caveat .ic{font-size:var(--t-h3);line-height:1}

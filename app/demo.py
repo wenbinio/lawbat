@@ -14,6 +14,29 @@ def sample_room() -> Path:
     return Path(__file__).resolve().parent.parent / "demo" / "sample-room"
 
 
+def harbour_letter() -> str:
+    """The fictional engagement letter used to preload the demo reviewer."""
+    path = sample_room() / "01-correspondence" / "engagement-letter.txt"
+    return path.read_text(encoding="utf-8")
+
+
+def harbour_pdf() -> bytes:
+    """A one-page PDF of that letter, so the workspace is not an empty viewer."""
+    import fitz
+
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_textbox(
+        fitz.Rect(54, 48, 558, 790),
+        harbour_letter()[:6000],
+        fontsize=11,
+        fontname="helv",
+    )
+    data = doc.tobytes()
+    doc.close()
+    return data
+
+
 def prepare_demo() -> tuple[str, str]:
     """Index the sample room and return ``(db_path, friendly_name)``.
 

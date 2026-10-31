@@ -27,23 +27,14 @@
 /* __HOME_CSS__ */
 </style>
 </head>
-<body>
+<body data-demo="__DEMO__" data-demo="__DEMO__">
 <header class="lb-shell"><a class="lb-brand" href="/"><img alt="" width="32" height="32" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2IiB2aWV3Qm94PSIwIDAgMjU2IDI1NiI+CiAgPHJlY3QgeD0iOCIgeT0iOCIgd2lkdGg9IjI0MCIgaGVpZ2h0PSIyNDAiIHJ4PSI1NiIgZmlsbD0iIzE0MTYxYiIvPgogIDxwYXRoIGZpbGw9IiNmMmU4Y2YiIGQ9Ik0yNCA4NEw2NyA3MEwxMDEgODRMMTE1IDEwM0wxMTIgNjhMMTI4IDg0TDE0NCA2OEwxNDEgMTAzTDE1NSA4NEwxODkgNzBMMjMyIDg0TDIxNiAxMDVMMjMwIDExOUwyMDcgMTMwTDIxOCAxNTFMMTgzIDE0OEwxNzcgMTc0TDE0OCAxNTVMMTI4IDE5NEwxMDggMTU1TDc5IDE3NEw3MyAxNDhMMzggMTUxTDQ5IDEzMEwyNiAxMTlMNDAgMTA1WiIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTI4LDEwMiAxNDMsMTI2IDEyOCwxNzQgMTEzLDEyNiIgZmlsbD0iI2UwYTk0ZiIvPgo8L3N2Zz4K"><span>Lawbat</span></a><nav class="lb-nav" aria-label="Primary"><a href="/" aria-current="page">Home</a><a href="/app">Search</a><a href="/workspace">Documents</a><a href="/redaction">Redaction</a><a href="/reid-risk">Re-ID risk</a><a href="/app#tools">Tools</a></nav></header>
 <div class="lb-next"><span>The sample room is already indexed.</span><a href="/app">Search the data room</a><a href="/redaction" class="ghost">Redact a document</a></div>
 
 <div class="app">
 
   <!-- ===== module launcher (left rail) ===== -->
-  <nav class="nav">
-    <div class="brand">Lawbat<small>local · offline · no AI</small></div>
-    <a class="active" href="#" data-action="home"><span class="ic" aria-hidden="true">&#9638;</span> Home</a>
-    <a href="#" data-action="inbox"><span class="ic" aria-hidden="true">&#9993;</span> Inbox</a>
-    <a href="/app" data-action="dataroom"><span class="ic" aria-hidden="true">&#128270;</span> Data Room &mdash; search</a>
-    <a href="/app" data-action="docindex"><span class="ic" aria-hidden="true">&#9636;</span> Document index</a>
-    <a href="/redaction" data-action="redaction"><span class="ic" aria-hidden="true">&#11035;</span> Redaction</a>
-    <a href="/workspace"><span class="ic" aria-hidden="true">&#128196;</span> Document workspace</a>
-    <a href="/reid-risk" data-action="reidrisk"><span class="ic" aria-hidden="true">&#9888;</span> Re-ID risk</a>
-    <a href="#" data-action="timesheet"><span class="ic" aria-hidden="true">&#9201;</span> Timesheet</a>
+  <nav class="nav" aria-label="Matters">
     <div class="sec">Matters</div>
     <div id="navMatters" class="nav-matters"></div>
     <div class="spacer"></div>
@@ -58,14 +49,14 @@
     </div>
 
     <div class="wrap">
-      <!-- honest-limits caveat banner(s), rendered from the contract's section caveats -->
-      <div id="caveats"></div>
-
       <!-- preview banner: shown only when the view-model is the bundled sample -->
       <div id="previewNote"></div>
 
       <!-- global strip over the user's own files -->
       <div class="global" id="global"></div>
+
+      <!-- one collapsed honest-limit notice, after the stats so they stay above the fold -->
+      <div id="caveats"></div>
 
       <div class="cols">
         <!-- worklist: the inbox "what's next", rendered from the contract sections -->
@@ -84,15 +75,6 @@
             <h3>Deadlines</h3>
             <div id="deadlines"></div>
             <div class="note">Only deadlines written as dates. Confirm your own diary.</div>
-          </div>
-          <div class="box launch">
-            <h3>Jump to</h3>
-            <a href="/app" data-action="dataroom"><span class="ic" aria-hidden="true">&#128270;</span><span>Search the data room<br><span class="desc">full-text across your indexed docs</span></span></a>
-            <a href="/redaction" data-action="redaction"><span class="ic" aria-hidden="true">&#11035;</span><span>Redaction review<br><span class="desc">strip identifiers, lawyer sign-off</span></span></a>
-            <a href="/workspace"><span class="ic" aria-hidden="true">&#128196;</span><span>Document workspace<br><span class="desc">inspect a redaction, then release it</span></span></a>
-            <a href="/reid-risk" data-action="reidrisk"><span class="ic" aria-hidden="true">&#9888;</span><span>Re-identification risk<br><span class="desc">k-value estimate &middot; optimistic lower bound</span></span></a>
-            <a href="/app" data-action="docindex"><span class="ic" aria-hidden="true">&#9636;</span><span>Document index<br><span class="desc">schedule of documents (CSV)</span></span></a>
-            <a href="#" data-action="timesheet"><span class="ic" aria-hidden="true">&#9201;</span><span>Timesheet<br><span class="desc">one-click timer &middot; draft narratives</span></span></a>
           </div>
         </aside>
       </div>

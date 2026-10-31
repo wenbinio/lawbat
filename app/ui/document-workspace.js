@@ -54,7 +54,7 @@ $('prepareDocument').onclick=async()=>{
   if(!r.ok)throw Error(r.data.error||'Preparation failed');$('stepPrepare').style.color='#075e55';
   const released=await presentPreparedRelease(r.data);
   if(!released.ok){$('prepareState').textContent='No copy released. Return to review or prepare again.';return;}
-  $('stepRelease').style.color='#075e55';$('prepareState').textContent='Document and reports released as one package. The source remains unchanged.';
+  $('stepRelease').style.color='#e0a94f';$('prepareState').textContent='Document and reports released as one package. The source remains unchanged.';
   const receipt=$('releaseReceipt');receipt.replaceChildren();const h=document.createElement('h2');h.textContent='Released with recorded review limitations';receipt.appendChild(h);const p=document.createElement('p');p.textContent='The document, verification reports and release receipt were published together. This is not a certification of anonymity.';receipt.appendChild(p);const code=document.createElement('code');code.textContent=released.data.filename;receipt.appendChild(code);const b=document.createElement('button');b.textContent='Open released package';b.style.marginLeft='14px';b.onclick=()=>LB.post('/api/redaction/open-export',{filename:released.data.filename});receipt.appendChild(b);receipt.style.display='block';receipt.scrollIntoView({behavior:'smooth',block:'center'});
  }catch(e){notice(e.message,true);$('prepareState').textContent='No completed release was created.';}finally{busy=false;buttons();}
 };
@@ -62,4 +62,21 @@ LB.get('/api/redaction/capabilities').then(r=>{
  if(!r.ok)throw Error(r.data.error||'Engine unavailable');caps=r.data;$('engineStatus').textContent='Local engine ready · no cloud calls';
  for(const locale of caps.locales){const label=document.createElement('label'),box=document.createElement('input');box.type='checkbox';box.value=locale;box.checked=locale==='sg';box.onchange=()=>{if(review){invalidate();notice('Detection settings changed. Scan again.');}};label.appendChild(box);label.appendChild(document.createTextNode(' '+locale.toUpperCase()));$('workspacePacks').appendChild(label);}buttons();
 }).catch(e=>{$('engineStatus').textContent='Engine unavailable';notice(e.message,true);});
+async function loadHarbourPdf(){
+  const r = await LB.get('/api/demo/sample');
+  if(!r.ok || !r.data || !r.data.data_b64) return;
+  const bin = atob(r.data.data_b64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  const f = new File([bytes], r.data.filename || 'harbour-lane-sample.pdf', {type:'application/pdf'});
+  const input = $('workspaceFile');
+  const dt = new DataTransfer();
+  dt.items.add(f);
+  input.files = dt.files;
+  input.dispatchEvent(new Event('change'));
+  if(r.data.text) $('workspaceTerms').value = 'Harbour Lane\nPriya Shah\nAlex Rivera';
+}
+const harbourWs = $('harbourWs');
+if(harbourWs) harbourWs.addEventListener('click', ()=>loadHarbourPdf().catch(()=>notice('Could not load the sample.', true)));
+if(document.body && document.body.getAttribute('data-demo')==='1') loadHarbourPdf().catch(()=>{});
 })();

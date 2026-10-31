@@ -20,6 +20,8 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 _DEMO = "--demo" in sys.argv[1:]
 if _DEMO and not os.environ.get("LAWDATAMAN_DATA_DIR"):
     os.environ["LAWDATAMAN_DATA_DIR"] = str(_REPO_ROOT / ".demo-data")
+if _DEMO:
+    os.environ["LAWDATAMAN_DEMO"] = "1"
 
 import uvicorn  # noqa: E402
 

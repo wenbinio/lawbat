@@ -168,6 +168,18 @@
     if (typeof updateBatchBar === 'function') updateBatchBar();
   }
 
+  async function loadHarbourSample(){
+    try {
+      var r = await get('/api/demo/sample');
+      if (!r.ok || !r.data || !r.data.text) return;
+      if ($('input') && !$('input').value) {
+        $('input').value = r.data.text;
+        $('input').dispatchEvent(new Event('input', {bubbles:true}));
+      }
+    } catch (e) { /* the button stays; the page still works without the sample */ }
+  }
+  if ($('harbourBtn')) $('harbourBtn').addEventListener('click', loadHarbourSample);
+
   // ---- engine health on load -----------------------------------------------------
   async function checkEngineHealth(){
     try {
@@ -391,6 +403,7 @@
   refreshScanEnabled();
   refreshStepper();
   checkEngineHealth();
+  if (document.body && document.body.getAttribute('data-demo') === '1') loadHarbourSample();
 
   // Expose the PURE grouping helpers + the leak-direction reset/provenance seam for
   // testability (no behavior change — only read accessors + the real functions are exposed).

@@ -633,6 +633,18 @@ def create_app(state: AppState) -> FastAPI:
             "platform": platform.platform(),
         })
 
+    @app.get("/api/demo/sample", dependencies=_TOKEN_GUARD)
+    def api_demo_sample():
+        """Fictional Harbour Lane letter + a one-page PDF of it. No client data."""
+        from .demo import harbour_letter, harbour_pdf
+        text = harbour_letter()
+        pdf = harbour_pdf()
+        return JSONResponse({
+            "filename": "harbour-lane-sample.pdf",
+            "text": text,
+            "data_b64": base64.b64encode(pdf).decode("ascii"),
+        })
+
     @app.post("/api/index/estimate", dependencies=_TOKEN_GUARD)
     def api_index_estimate(payload: dict = Body(...)):
         # A bounded, NO-OPEN pre-walk so the UI can warn / refuse BEFORE the first
@@ -1208,14 +1220,14 @@ def create_app(state: AppState) -> FastAPI:
         # firmOS HOME is the LANDING page. Inject the per-session token (url-safe
         # base64, no HTML-special chars, escaped defensively) into the assembled,
         # self-contained Home document.
-        return HTMLResponse(HOME_PAGE.replace("__DRR_TOKEN__", html.escape(state.token)))
+        return _serve_page(HOME_PAGE, state)
 
     @app.get("/app", response_class=HTMLResponse)
     def dataroom():
         # The data-room search + Tools, now a MODULE reached FROM the Home (the
         # launcher / "open data room" links point here). Same self-contained page +
         # token as before — only the path moved off the landing slot.
-        return HTMLResponse(PAGE.replace("__DRR_TOKEN__", html.escape(state.token)))
+        return _serve_page(PAGE, state)
 
     # ---- Re-identification RISK estimator (NEW add-on; SEPARATE from redaction) ----
     # A self-contained tool reached from the Home launcher: paste/upload a document (or a
@@ -1225,7 +1237,7 @@ def create_app(state: AppState) -> FastAPI:
     # air-gapped; it NEVER touches the redaction carrier. The text never leaves this process.
     @app.get("/reid-risk", response_class=HTMLResponse)
     def reidrisk_page():
-        return HTMLResponse(REIDRISK_PAGE.replace("__DRR_TOKEN__", html.escape(state.token)))
+        return _serve_page(REIDRISK_PAGE, state)
 
     # ---- Redaction review (module #1 — the two-tier review UI) ----------------
     # A self-contained text tool reached from the Home launcher: paste text -> SCAN
@@ -1234,7 +1246,7 @@ def create_app(state: AppState) -> FastAPI:
     # only the local pipe to the bin (air-gapped); we never persist or log it here.
     @app.get("/redaction", response_class=HTMLResponse)
     def redaction_page():
-        return HTMLResponse(REDACTION_PAGE.replace("__DRR_TOKEN__", html.escape(state.token)))
+        return _serve_page(REDACTION_PAGE, state)
 
     # The redaction API routes (/api/redaction/{sample,scan,scan-file,pdf-scan,pdf-preview,
     # pdf-apply,pdf-ocr-apply,pdf-ocr-scan,pdf-ocr-apply-selection,apply,text-export} + the
@@ -1443,6 +1455,14 @@ def create_app(state: AppState) -> FastAPI:
     return app
 
 
+def _serve_page(page: str, state: AppState) -> HTMLResponse:
+    """Inject the session token and whether this process was started with --demo."""
+    demo = "1" if os.environ.get("LAWDATAMAN_DEMO") == "1" else "0"
+    body = (page.replace("__DRR_TOKEN__", html.escape(state.token))
+                .replace("__DEMO__", demo))
+    return HTMLResponse(body)
+
+
 def _install_document_workspace(app, state):
     page = _build_page("document-workspace.html", [
         ("/* __BASE_JS__ */", "base.js"),
@@ -1452,7 +1472,7 @@ def _install_document_workspace(app, state):
 
     @app.get("/workspace", response_class=HTMLResponse)
     def workspace():
-        return HTMLResponse(page.replace("__DRR_TOKEN__", html.escape(state.token)))
+        return _serve_page(page, state)
 
 
 # ------------------------------------------------------ redactor variant ----
@@ -1492,7 +1512,7 @@ def create_redactor_app(state: AppState) -> FastAPI:
     def redactor_home():
         # The redaction reviewer IS the landing page here. Inject the per-session token into
         # the SAME assembled, self-contained REDACTION_PAGE that Lawbat serves at /redaction.
-        return HTMLResponse(REDACTION_PAGE.replace("__DRR_TOKEN__", html.escape(state.token)))
+        return _serve_page(REDACTION_PAGE, state)
 
 
     _install_document_workspace(app, state)

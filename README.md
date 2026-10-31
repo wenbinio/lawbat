@@ -1,6 +1,9 @@
 <p align="center">
   <img src="assets/logo/lawbat-logo.svg" alt="Lawbat" width="128">
 </p>
+<p align="center">
+  <img src="assets/logo/readme-home.png" alt="Lawbat home, with the sample matter open" width="880">
+</p>
 
 # Lawbat
 
