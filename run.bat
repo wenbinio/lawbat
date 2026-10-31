@@ -21,8 +21,15 @@ rem ============================================================================
 rem --- detached helper mode: poll the port, then open the browser -------------
 if /i "%~1"=="--open" goto :openbrowser
 
+rem --- optional demo mode: index demo\sample-room and open Home ---------------
+set "SERVE_ARGS="
+if /i "%~1"=="--demo" set "SERVE_ARGS=--demo"
+
 rem --- 1. cd to this script's own folder (the repo root) ----------------------
 cd /d "%~dp0"
+
+rem Demo indexes a fictional folder into the clone, not the real data directory.
+if defined SERVE_ARGS set "LAWDATAMAN_DATA_DIR=%CD%\.demo-data"
 
 rem --- 2. PYTHONPATH=. so `python -m app.serve` finds the `app` package -------
 set "PYTHONPATH=."
@@ -59,6 +66,19 @@ if defined ENGINE (
     call :try_build
 )
 
+set "VIEWGEN="
+if defined LAWDATAMAN_VIEWGEN if exist "%LAWDATAMAN_VIEWGEN%" set "VIEWGEN=%LAWDATAMAN_VIEWGEN%"
+if not defined VIEWGEN if exist "%~dp0vendor\core\viewgen.exe"         set "VIEWGEN=%~dp0vendor\core\viewgen.exe"
+if not defined VIEWGEN if exist "%~dp0core\target\release\viewgen.exe" set "VIEWGEN=%~dp0core\target\release\viewgen.exe"
+if not defined VIEWGEN if exist "%~dp0core\target\debug\viewgen.exe"   set "VIEWGEN=%~dp0core\target\debug\viewgen.exe"
+if defined VIEWGEN (
+    set "LAWDATAMAN_VIEWGEN=%VIEWGEN%"
+    echo   viewgen: %VIEWGEN%
+) else (
+    echo   viewgen: NOT FOUND - Home will show the labelled sample preview.
+    echo     Build it:  cargo build -p viewgen --release
+)
+
 rem --- 4. run the setup doctor (informational; never blocks the launch) -------
 echo.
 echo Running setup doctor...
@@ -75,9 +95,15 @@ rem The helper (this same file, re-invoked with --open) polls the port and opens
 rem the browser ONLY once the server is listening. The server runs here in the
 rem foreground so this window is tied to it: close the window / Ctrl+C to stop.
 echo.
-echo Starting Lawbat on http://127.0.0.1:8077/redaction ...
-start "Lawbat (opening browser)" /min "%~f0" --open
-%PY% -m app.serve
+if defined SERVE_ARGS (
+    echo Starting Lawbat on http://127.0.0.1:8077/ ...
+    start "Lawbat (opening browser)" /min "%~f0" --open --demo
+    %PY% -m app.serve --demo
+) else (
+    echo Starting Lawbat on http://127.0.0.1:8077/redaction ...
+    start "Lawbat (opening browser)" /min "%~f0" --open
+    %PY% -m app.serve
+)
 
 echo.
 echo Lawbat has stopped. You can close this window.
@@ -132,6 +158,7 @@ rem ===========================================================================
 rem Detached helper: poll until 127.0.0.1:8077 is LISTENING, then open the page.
 rem Open ONLY when it actually binds, so a failed startup never pops a dead tab.
 set "URL=http://127.0.0.1:8077/redaction"
+if /i "%~2"=="--demo" set "URL=http://127.0.0.1:8077/"
 set /a _tries=0
 :pollloop
 netstat -an | findstr /c:":8077" | findstr /c:"LISTENING" >nul 2>nul

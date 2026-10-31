@@ -1,0 +1,7 @@
+# Ruff's default rule set grew after this tree was written (isort, pyupgrade,
+# flake8-bandit, and others). CI installs whatever `ruff` is current, so pin
+# the historical default here. New code should still pass these rules.
+[lint]
+select = ["E4", "E7", "E9", "F"]
+# The September redactor tests use compact one-line asserts. Leave them as written.
+ignore = ["E701", "E702"]

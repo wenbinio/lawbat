@@ -10,9 +10,22 @@
 # Dependency-free shell — POSIX-ish bash, no extra tools required.
 set -u
 
+# --- 0. optional demo mode: index demo/sample-room and open Home --------------
+DEMO=0
+if [ "${1:-}" = "--demo" ]; then
+  DEMO=1
+fi
+
 # --- 1. cd to this script's own directory (the repo root) ---------------------
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$REPO_ROOT" || { echo "could not cd to $REPO_ROOT"; exit 1; }
+
+# Demo indexes a fictional folder. Keep that database in the clone, not in the
+# user's real DataRoomReview directory. Set this before the doctor, which
+# creates the data dir as part of its writability check.
+if [ "$DEMO" = "1" ]; then
+  export LAWDATAMAN_DATA_DIR="$REPO_ROOT/.demo-data"
+fi
 
 # --- 2. PYTHONPATH=. so `python -m app.serve` finds the `app` package ---------
 export PYTHONPATH=.
@@ -54,6 +67,27 @@ else
   echo "    (it lands at core/target/release/redact-cli), or drop redact-cli into vendor/core/."
 fi
 
+# Home's worklist uses viewgen. The Python locator does not look in core/target
+# on its own, so this script exports the path when a local build exists.
+VIEWGEN=""
+if [ -n "${LAWDATAMAN_VIEWGEN:-}" ] && [ -x "${LAWDATAMAN_VIEWGEN}" ]; then
+  VIEWGEN="${LAWDATAMAN_VIEWGEN}"
+else
+  for c in \
+    "$REPO_ROOT/vendor/core/viewgen" \
+    "$REPO_ROOT/core/target/release/viewgen" \
+    "$REPO_ROOT/core/target/debug/viewgen"; do
+    if [ -x "$c" ]; then VIEWGEN="$c"; break; fi
+  done
+fi
+if [ -n "$VIEWGEN" ]; then
+  export LAWDATAMAN_VIEWGEN="$VIEWGEN"
+  echo "  viewgen: $VIEWGEN"
+else
+  echo "  viewgen: NOT FOUND — Home will show the labelled sample preview."
+  echo "    Build it:  cargo build -p viewgen --release"
+fi
+
 # --- 4. run the setup doctor (informational; never blocks the launch) --------
 echo ""
 echo "Running setup doctor..."
@@ -66,12 +100,18 @@ fi
 
 # --- 5. start the server, wait for the port, open the browser ----------------
 PORT=8077
-URL="http://127.0.0.1:${PORT}/redaction"
+if [ "$DEMO" = "1" ]; then
+  URL="http://127.0.0.1:${PORT}/"
+  SERVE_ARGS=(--demo)
+else
+  URL="http://127.0.0.1:${PORT}/redaction"
+  SERVE_ARGS=()
+fi
 
 echo ""
 echo "Starting Lawbat on ${URL} ..."
 
-"$PY" -m app.serve &
+"$PY" -m app.serve "${SERVE_ARGS[@]}" &
 SERVER_PID=$!
 
 # stop the server when this script is interrupted/terminated.

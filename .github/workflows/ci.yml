@@ -116,6 +116,8 @@ jobs:
         run: pip install fastapi "uvicorn[standard]" pymupdf python-docx openpyxl python-pptx httpx pillow
       - name: Smoke tests
         run: python tests/test_smoke.py
+      - name: Demo sample room
+        run: python tests/test_demo.py
       - name: End-to-end (real server)
         run: python tests/test_e2e.py
       - name: Desktop shell guards (socket sockopt + folder-dialog dispatch)

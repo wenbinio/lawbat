@@ -40,3 +40,6 @@ target/
 # Platform-architecture / strategy DRAFTS staged for review. CLAUDE.md: these are
 # kept out of this PUBLIC repo on purpose (the core-module architecture spec is the
 # private source of truth). Never commit anything under here.
+
+# Local index created by ./run.sh --demo (fictional sample room only).
+.demo-data/
