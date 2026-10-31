@@ -34,14 +34,14 @@
   /* native controls (checkbox/radio, scrollbars, pickers) follow the theme */
   color-scheme:dark;
   /* luminance ladder (depth = light, not shadow) */
-  --l0:#121419; --l1:#171A21; --l2:#1D2129; --l3:#252B36;
+  --l0:#14161b; --l1:#1c1f27; --l2:#242830; --l3:#2e333d;
   /* foreground ladder (hierarchy = alpha steps) */
-  --fg:#E8EAEE; --fg2:#B3B9C4; --fg3:#8A919E; --fg4:#5F6675;
+  --fg:#f2e8cf; --fg2:#ddd4bc; --fg3:#b3aa96; --fg4:#8a8374;
   /* hairlines (borders replace shadows) */
   --hair:#ffffff17; --hair2:#ffffff0b;
   /* the one accent + the motif */
-  --accent:#D8A83C; --accent-ink:#171204;
-  --accent-ghost:#d8a83c1a; --accent-line:#d8a83c45;
+  --accent:#e0a94f; --accent-ink:#14161b;
+  --accent-ghost:#e0a94f1a; --accent-line:#e0a94f45;
   --bar:#000; --bar-ink:#EDEBE3;
   /* semantic status — never decorative */
   --good:#5CA57D; --good-ghost:#5ca57d18;
@@ -79,11 +79,11 @@
    over the OS preference in BOTH directions */
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --l0:#121419; --l1:#171A21; --l2:#1D2129; --l3:#252B36;
-  --fg:#E8EAEE; --fg2:#B3B9C4; --fg3:#8A919E; --fg4:#5F6675;
+  --l0:#14161b; --l1:#1c1f27; --l2:#242830; --l3:#2e333d;
+  --fg:#f2e8cf; --fg2:#ddd4bc; --fg3:#b3aa96; --fg4:#8a8374;
   --hair:#ffffff17; --hair2:#ffffff0b;
-  --accent:#D8A83C; --accent-ink:#171204;
-  --accent-ghost:#d8a83c1a; --accent-line:#d8a83c45;
+  --accent:#e0a94f; --accent-ink:#14161b;
+  --accent-ghost:#e0a94f1a; --accent-line:#e0a94f45;
   --bar:#000; --bar-ink:#EDEBE3;
   --good:#5CA57D; --good-ghost:#5ca57d18;
   --warn:#C79A44; --warn-ghost:#c79a4418;
@@ -319,3 +319,28 @@ textarea::placeholder,.text-input::placeholder{color:var(--fg4)}
 .hidden{display:none !important}
 .mt0{margin-top:0}
 .mb0{margin-bottom:0}
+
+
+/* Shared app shell — same header on every page. Hardcoded to the logo tile
+   so the bar stays near-black even when the page body follows the OS theme. */
+.lb-shell{display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  background:#14161b;color:#f2e8cf;padding:8px 18px;min-height:56px;
+  border-bottom:2px solid #e0a94f;position:sticky;top:0;z-index:80}
+.lb-brand{display:flex;align-items:center;gap:10px;color:#f2e8cf;text-decoration:none;
+  font-weight:700;letter-spacing:-.02em;font-size:18px;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.lb-brand img{width:32px;height:32px;border-radius:8px;display:block}
+.lb-nav{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.lb-nav a{color:#ddd4bc;text-decoration:none;padding:6px 10px;border-radius:8px;font-size:13.5px;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.lb-nav a:hover{background:#242830;color:#f2e8cf}
+.lb-nav a[aria-current="page"]{background:#e0a94f;color:#14161b;font-weight:700}
+.lb-next{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;align-items:center;
+  padding:8px 18px;background:#1c1f27;color:#ddd4bc;font-size:13px;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.lb-next span{margin-right:auto}
+.lb-next a{color:#14161b;background:#e0a94f;text-decoration:none;border-radius:8px;padding:7px 12px;font-weight:650}
+.lb-next a.ghost{background:transparent;color:#f2e8cf;border:1px solid #e0a94f}
+@media (max-width:1100px){
+  .lb-shell{padding:8px 12px}
+  .app{grid-template-columns:1fr !important}
+}

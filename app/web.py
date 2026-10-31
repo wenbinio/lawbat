@@ -301,7 +301,7 @@ def _build_home_page() -> str:
     shared /* __BASE_JS__ */ marker, BEFORE home.js in the same <script> block, on every
     page that carries one — never <link src>'d, so the air-gap guarantee holds."""
     return _build_page("home.html", [
-        ("/* __HOME_CSS__ */", "home.css"),
+        ("/* __HOME_CSS__ */", ["base.css", "home.css"]),
         ("/* __BASE_JS__ */", BASE_JS),
         ("/* __HOME_JS__ */", "home.js"),
     ], label="Home", guard=_airgap_strict)
@@ -319,7 +319,7 @@ def _build_dataroom_page() -> str:
     footer anchors, so it uses _airgap_resource_load_only (see that guard's docstring).
     base.js is inlined FIRST via the shared /* __BASE_JS__ */ marker (see _build_home_page)."""
     return _build_page("dataroom.html", [
-        ("/* __DATAROOM_CSS__ */", "dataroom.css"),
+        ("/* __DATAROOM_CSS__ */", ["base.css", "dataroom.css"]),
         ("/* __BASE_JS__ */", BASE_JS),
         ("/* __DATAROOM_JS__ */", "dataroom.js"),
     ], label="Data-room", guard=_airgap_resource_load_only)

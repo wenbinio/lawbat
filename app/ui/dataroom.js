@@ -516,5 +516,8 @@
   window.toolUndoLast = toolUndoLast;
   window.render = render;
 
-  render();
+  var boot = render();
+  if (location.hash === '#tools' && boot && typeof boot.then === 'function') {
+    boot.then(function(){ renderTools(); });
+  }
 })();
